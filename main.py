@@ -1,9 +1,9 @@
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.constants import ParseMode
 import requests
 
-# Define the two APIs
+# Define the API URLs
 API_1 = "https://tele-social.vercel.app/down?url="
 API_2 = "https://api.smtv.uz/yt/?url="
 
@@ -13,17 +13,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Send me a YouTube link, and I'll fetch videos from two different APIs!"
     )
 
-# Function to process YouTube links
+# Function to process YouTube links and get video details from both APIs
 async def process_youtube_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message.text:
-        return
-
     youtube_url = update.message.text.strip()
-    if "youtu" not in youtube_url:
+
+    if not youtube_url or "youtu" not in youtube_url:
         await update.message.reply_text("Please send a valid YouTube link!")
         return
 
-    # Fetch from API 1
+    # Fetch data from API 1
     api1_response = requests.get(f"{API_1}{youtube_url}")
     if api1_response.status_code == 200:
         api1_data = api1_response.json()
@@ -36,7 +34,7 @@ async def process_youtube_link(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         await update.message.reply_text("Failed to fetch data from API 1!")
 
-    # Fetch from API 2
+    # Fetch data from API 2
     api2_response = requests.get(f"{API_2}{youtube_url}")
     if api2_response.status_code == 200:
         api2_data = api2_response.json()
@@ -58,8 +56,8 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", start))
 
-    # Message handler
-    application.add_handler(CommandHandler("message", process_youtube_link))
+    # Message handler to process YouTube links
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_youtube_link))
 
     application.run_polling()
 
