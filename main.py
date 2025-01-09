@@ -1,90 +1,85 @@
-import logging
 import requests
-from telegram import Update, InputFile
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, ParseMode
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Enable logging
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Function to fetch video data from the first API
+def fetch_video_from_api1(url):
+    api_url = f"https://tele-social.vercel.app/down?url={url}"
+    response = requests.get(api_url)
+    if response.status_code == 200:
+        return response.json()
+    return None
 
-API_BASE_URL = "https://tele-social.vercel.app/down?url="
+# Function to fetch video data from the second API
+def fetch_video_from_api2(url):
+    api_url = f"https://api.smtv.uz/yt/?url={url}"
+    response = requests.get(api_url)
+    if response.status_code == 200:
+        return response.json()
+    return None
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a welcome message when the command /start is issued."""
-    await update.message.reply_text(
-        "Welcome! Send me a TikTok or Instagram link, and I'll download the media for you."
-    )
+# Handler function for start command
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("Send me a YouTube video link, and I will fetch video links for you!")
 
-async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle user messages containing links and process them using the API."""
-    url = update.message.text.strip()
-    await update.message.reply_text("Processing your link... Please wait.")
-
-    try:
-        # Query the API
-        response = requests.get(f"{API_BASE_URL}{url}")
-        if response.status_code != 200:
-            await update.message.reply_text("Failed to fetch data from the API. Please try again later.")
-            return
-
-        data = response.json()
-        if not data.get("status"):
-            await update.message.reply_text("Invalid link or unsupported platform. Please try again.")
-            return
-
-        platform = data.get("platform", "Unknown Platform")
-        media_data = data.get("data")
+# Handler function for processing YouTube links
+def handle_message(update: Update, context: CallbackContext):
+    user_message = update.message.text
+    if "youtu" in user_message:  # Simple check for YouTube links
+        update.message.reply_text("Fetching video data...")
         
-        if platform == "TikTok" and media_data:
-            video_url = media_data.get("video")
-            if video_url:
-                video_response = requests.get(video_url, stream=True)
-                if video_response.status_code == 200:
-                    with open("tiktok_video.mp4", "wb") as file:
-                        file.write(video_response.content)
-                    with open("tiktok_video.mp4", "rb") as file:
-                        await update.message.reply_video(video=InputFile(file), caption="Here is your TikTok video!")
-                else:
-                    await update.message.reply_text("Failed to download the video. Please try again.")
-            else:
-                await update.message.reply_text("No video URL found in the response. Please check the link.")
-
-        elif platform == "Instagram" and media_data:
-            media_item = media_data[0]  # Use the first media item in the list
-            video_url = media_item.get("url")
-            thumbnail_url = media_item.get("thumbnail")
-            if thumbnail_url:
-                await update.message.reply_photo(photo=thumbnail_url, caption="Media Thumbnail")
-            if video_url:
-                video_response = requests.get(video_url, stream=True)
-                if video_response.status_code == 200:
-                    with open("instagram_video.mp4", "wb") as file:
-                        file.write(video_response.content)
-                    with open("instagram_video.mp4", "rb") as file:
-                        await update.message.reply_video(video=InputFile(file), caption="Here is your Instagram video!")
-                else:
-                    await update.message.reply_text("Failed to download the video. Please try again.")
-            else:
-                await update.message.reply_text("No video URL found in the response. Please check the link.")
-
+        # Fetch data from both APIs
+        data_api1 = fetch_video_from_api1(user_message)
+        data_api2 = fetch_video_from_api2(user_message)
+        
+        # Prepare response for API1
+        if data_api1 and data_api1.get("status"):
+            video_link_api1 = data_api1.get("video", "Not available")
+            video_hd_link_api1 = data_api1.get("video_hd", "Not available")
+            update.message.reply_text(
+                f"*API 1 Results:*\n"
+                f"Title: {data_api1.get('title', 'N/A')}\n"
+                f"Channel: {data_api1.get('channel', 'N/A')}\n"
+                f"[Standard Quality]({video_link_api1})\n"
+                f"[HD Quality]({video_hd_link_api1})",
+                parse_mode=ParseMode.MARKDOWN,
+            )
         else:
-            await update.message.reply_text("Unsupported platform or no media found. Please try a different link.")
+            update.message.reply_text("Failed to fetch data from API 1.")
+        
+        # Prepare response for API2
+        if data_api2 and not data_api2.get("error"):
+            medias = data_api2.get("medias", [])
+            if medias:
+                video_link_api2 = medias[0].get("url", "Not available")
+                update.message.reply_text(
+                    f"*API 2 Results:*\n"
+                    f"Title: {data_api2.get('title', 'N/A')}\n"
+                    f"Author: {data_api2.get('author', 'N/A')}\n"
+                    f"[Video Link]({video_link_api2})",
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+            else:
+                update.message.reply_text("No video links available in API 2 response.")
+        else:
+            update.message.reply_text("Failed to fetch data from API 2.")
+    else:
+        update.message.reply_text("Please send a valid YouTube link!")
 
-    except Exception as e:
-        logger.error(f"Error processing link: {e}")
-        await update.message.reply_text("An error occurred while processing your request. Please try again later.")
-
-def main() -> None:
-    """Run the bot."""
-    # Replace 'YOUR_BOT_TOKEN' with your actual bot token
-    application = Application.builder().token("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM").build()
-
-    # Register command and message handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_media))
-
+# Main function to run the bot
+def main():
+    # Replace YOUR_BOT_TOKEN with your actual Telegram bot token
+    updater = Updater("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM", use_context=True)
+    
+    # Command handlers
+    updater.dispatcher.add_handler(CommandHandler("start", start))
+    
+    # Message handler for YouTube links
+    updater.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    
     # Start the bot
-    application.run_polling()
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == "__main__":
     main()
