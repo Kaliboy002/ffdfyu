@@ -1,7 +1,7 @@
 import logging
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -81,7 +81,7 @@ def main() -> None:
 
     # Add command and message handlers
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, download_video))
+    dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
     dispatcher.add_handler(CallbackQueryHandler(handle_download_choice))
 
     # Start the Bot
