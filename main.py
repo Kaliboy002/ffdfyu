@@ -1,6 +1,6 @@
 import logging
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
 
 # Enable logging
@@ -26,25 +26,17 @@ async def download_video(update: Update, context: CallbackContext) -> None:
 
             # Check if the response has valid data
             if video_data.get("status"):
-                title = video_data.get("title")
-                thumb = video_data.get("thumb")
                 video_url = video_data.get("video")
                 video_hd_url = video_data.get("video_hd")
                 audio_url = video_data.get("audio")
-                quality = video_data.get("quality")
 
-                # Send title and thumbnail
-                await update.message.reply_text(f"Video Title: {title}\nQuality: {quality}")
-                await update.message.reply_photo(thumb, caption=f"Thumbnail for: {title}")
-
-                # Provide download options via inline keyboard
-                keyboard = [
-                    [InlineKeyboardButton("Download Video (360p/720p)", callback_data=f"video_{video_url}"),
-                     InlineKeyboardButton("Download HD Video", callback_data=f"video_hd_{video_hd_url}")],
-                    [InlineKeyboardButton("Download Audio", callback_data=f"audio_{audio_url}")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                await update.message.reply_text("Choose an option to download:", reply_markup=reply_markup)
+                # Send the video or audio directly to the user
+                if video_url:
+                    await update.message.reply_video(video_url, caption="Here's your video!")
+                elif video_hd_url:
+                    await update.message.reply_video(video_hd_url, caption="Here's your HD video!")
+                elif audio_url:
+                    await update.message.reply_audio(audio_url, caption="Here's your audio!")
 
             else:
                 await update.message.reply_text("Sorry, I couldn't fetch the video. Please try again.")
@@ -54,26 +46,6 @@ async def download_video(update: Update, context: CallbackContext) -> None:
     else:
         await update.message.reply_text("Please send a valid YouTube URL.")
 
-async def handle_download_choice(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    await query.answer()
-    data = query.data.split('_')
-
-    if data[0] == 'video':
-        video_url = data[1]
-        await query.message.reply_text("Downloading video...")
-        await query.message.reply_video(video_url, caption="Here's your video!")
-
-    elif data[0] == 'video_hd':
-        video_hd_url = data[1]
-        await query.message.reply_text("Downloading HD video...")
-        await query.message.reply_video(video_hd_url, caption="Here's your HD video!")
-
-    elif data[0] == 'audio':
-        audio_url = data[1]
-        await query.message.reply_text("Downloading audio...")
-        await query.message.reply_audio(audio_url, caption="Here's your audio!")
-
 def main() -> None:
     # Set up the Application
     application = Application.builder().token("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM").build()
@@ -81,7 +53,6 @@ def main() -> None:
     # Add command and message handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
-    application.add_handler(CallbackQueryHandler(handle_download_choice))
 
     # Start the Bot
     application.run_polling()
