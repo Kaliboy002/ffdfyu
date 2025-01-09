@@ -2,6 +2,7 @@ import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+import time
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -17,42 +18,53 @@ async def handle_video_link(update: Update, context: CallbackContext) -> None:
     video_url = update.message.text
     logger.info(f"Received video URL: {video_url}")
 
-    # API URL
-    api_url = f"https://api.smtv.uz/yt/?url={video_url}"
+    # Try first API
+    api_url_1 = f"https://api.smtv.uz/yt/?url={video_url}"
+    api_url_2 = f"https://tele-social.vercel.app/down?url={video_url}"
 
     try:
-        # Fetch video information from the API
-        response = requests.get(api_url)
-        logger.info(f"API Response: {response.status_code} - {response.text}")
+        # First, check with the first API
+        start_time = time.time()
+        response_1 = requests.get(api_url_1)
+        logger.info(f"API 1 Response: {response_1.status_code} - {response_1.text}")
+        api_1_duration = time.time() - start_time
 
-        if response.status_code != 200:
-            await update.message.reply_text("Failed to fetch data from the API.")
-            return
+        if response_1.status_code == 200:
+            video_data_1 = response_1.json()
+            if not video_data_1.get("error") and "medias" in video_data_1 and video_data_1["medias"]:
+                video_link = video_data_1["medias"][0]["url"]
+                video_title = video_data_1.get("title", "No title available")
+                video_thumbnail = video_data_1.get("thumbnail", "")
+                logger.info(f"Video download link from API 1: {video_link}")
 
-        video_data = response.json()
-        logger.info(f"Video data: {video_data}")
+                # Send the video from API 1
+                video_response = requests.get(video_link, stream=True)
+                video_file = video_response.raw
+                await update.message.reply_video(video=video_file, caption=video_title, thumb=video_thumbnail)
+                return  # Successfully handled video from API 1
 
-        # Check if the video data is valid and contains download link
-        if video_data.get("error"):
-            await update.message.reply_text("Sorry, there was an error processing the video.")
-            return
+        # If API 1 fails, try the second API
+        start_time = time.time()
+        response_2 = requests.get(api_url_2)
+        logger.info(f"API 2 Response: {response_2.status_code} - {response_2.text}")
+        api_2_duration = time.time() - start_time
 
-        if "medias" in video_data and video_data["medias"]:
-            video_info = video_data["medias"][0]
-            video_link = video_info["url"]
-            video_title = video_data.get("title", "No title available")
-            video_thumbnail = video_data.get("thumbnail", "")
+        if response_2.status_code == 200:
+            video_data_2 = response_2.json()
+            if video_data_2.get("status"):
+                video_link = video_data_2["video"]
+                video_title = video_data_2.get("title", "No title available")
+                logger.info(f"Video download link from API 2: {video_link}")
 
-            logger.info(f"Video download link: {video_link}")
+                # Send the video from API 2
+                video_response = requests.get(video_link, stream=True)
+                video_file = video_response.raw
+                await update.message.reply_video(video=video_file, caption=video_title)
+                return  # Successfully handled video from API 2
 
-            # Download the video and send it
-            video_response = requests.get(video_link, stream=True)
-            video_file = video_response.raw
-
-            # Send the video to the user
-            await update.message.reply_video(video=video_file, caption=video_title, thumb=video_thumbnail)
-        else:
-            await update.message.reply_text("Sorry, I couldn't fetch the video download link.")
+        # If both APIs fail
+        await update.message.reply_text("Sorry, I couldn't fetch the video from either API.")
+        
     except Exception as e:
         logger.error(f"Error: {e}")
         await update.message.reply_text("An error occurred while processing the video.")
