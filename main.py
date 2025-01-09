@@ -10,27 +10,18 @@ logger = logging.getLogger(__name__)
 
 # Function to start the bot
 async def start(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Hi! Send me a video link, and I will send you the video.")
+    await update.message.reply_text("Hi! Send me a YouTube video link, and I will send you the video.")
 
 # Function to handle incoming video link
 async def handle_video_link(update: Update, context: CallbackContext) -> None:
     video_url = update.message.text
     logger.info(f"Received video URL: {video_url}")
 
-    # Extract video ID from the URL (assuming the format "https://youtu.be/{video_id}")
-    try:
-        video_id = video_url.split("youtu.be/")[1].split("?")[0]
-    except IndexError:
-        await update.message.reply_text("Invalid YouTube URL format.")
-        return
-
-    logger.info(f"Extracted video ID: {video_id}")
-
     # API URL
-    api_url = f"https://tele-social.vercel.app/down?url={video_url}"
+    api_url = f"https://api.smtv.uz/yt/?url={video_url}"
 
     try:
-        # Fetch video information
+        # Fetch video information from the API
         response = requests.get(api_url)
         logger.info(f"API Response: {response.status_code} - {response.text}")
 
@@ -41,9 +32,17 @@ async def handle_video_link(update: Update, context: CallbackContext) -> None:
         video_data = response.json()
         logger.info(f"Video data: {video_data}")
 
-        # Check if the video data is valid
-        if video_data.get("status"):
-            video_link = video_data["video"]
+        # Check if the video data is valid and contains download link
+        if video_data.get("error"):
+            await update.message.reply_text("Sorry, there was an error processing the video.")
+            return
+
+        if "medias" in video_data and video_data["medias"]:
+            video_info = video_data["medias"][0]
+            video_link = video_info["url"]
+            video_title = video_data.get("title", "No title available")
+            video_thumbnail = video_data.get("thumbnail", "")
+
             logger.info(f"Video download link: {video_link}")
 
             # Download the video and send it
@@ -51,9 +50,9 @@ async def handle_video_link(update: Update, context: CallbackContext) -> None:
             video_file = video_response.raw
 
             # Send the video to the user
-            await update.message.reply_video(video=video_file, caption=video_data["title"])
+            await update.message.reply_video(video=video_file, caption=video_title, thumb=video_thumbnail)
         else:
-            await update.message.reply_text("Sorry, I couldn't fetch the video.")
+            await update.message.reply_text("Sorry, I couldn't fetch the video download link.")
     except Exception as e:
         logger.error(f"Error: {e}")
         await update.message.reply_text("An error occurred while processing the video.")
