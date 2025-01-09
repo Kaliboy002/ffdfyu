@@ -1,7 +1,7 @@
 import logging
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, CallbackContext, filters
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 # Define your API URL format
 API_URL = "https://tele-social.vercel.app/down?url="
 
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Welcome! Send me a YouTube URL, and I\'ll fetch the video or audio for you.')
+async def start(update: Update, context: CallbackContext) -> None:
+    await update.message.reply_text('Welcome! Send me a YouTube URL, and I\'ll fetch the video or audio for you.')
 
-def download_video(update: Update, context: CallbackContext) -> None:
+async def download_video(update: Update, context: CallbackContext) -> None:
     url = update.message.text.strip()
     if 'youtu' in url:
         api_url = f"{API_URL}{url}"
@@ -34,8 +34,8 @@ def download_video(update: Update, context: CallbackContext) -> None:
                 quality = video_data.get("quality")
 
                 # Send title and thumbnail
-                update.message.reply_text(f"Video Title: {title}\nQuality: {quality}")
-                update.message.reply_photo(thumb, caption=f"Thumbnail for: {title}")
+                await update.message.reply_text(f"Video Title: {title}\nQuality: {quality}")
+                await update.message.reply_photo(thumb, caption=f"Thumbnail for: {title}")
 
                 # Provide download options via inline keyboard
                 keyboard = [
@@ -44,49 +44,47 @@ def download_video(update: Update, context: CallbackContext) -> None:
                     [InlineKeyboardButton("Download Audio", callback_data=f"audio_{audio_url}")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                update.message.reply_text("Choose an option to download:", reply_markup=reply_markup)
+                await update.message.reply_text("Choose an option to download:", reply_markup=reply_markup)
 
             else:
-                update.message.reply_text("Sorry, I couldn't fetch the video. Please try again.")
+                await update.message.reply_text("Sorry, I couldn't fetch the video. Please try again.")
         except Exception as e:
             logger.error(f"Error: {e}")
-            update.message.reply_text("An error occurred while fetching the video.")
+            await update.message.reply_text("An error occurred while fetching the video.")
     else:
-        update.message.reply_text("Please send a valid YouTube URL.")
+        await update.message.reply_text("Please send a valid YouTube URL.")
 
-def handle_download_choice(update: Update, context: CallbackContext) -> None:
+async def handle_download_choice(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    query.answer()
+    await query.answer()
     data = query.data.split('_')
 
     if data[0] == 'video':
         video_url = data[1]
-        query.message.reply_text("Downloading video...")
-        query.message.reply_video(video_url, caption="Here's your video!")
+        await query.message.reply_text("Downloading video...")
+        await query.message.reply_video(video_url, caption="Here's your video!")
 
     elif data[0] == 'video_hd':
         video_hd_url = data[1]
-        query.message.reply_text("Downloading HD video...")
-        query.message.reply_video(video_hd_url, caption="Here's your HD video!")
+        await query.message.reply_text("Downloading HD video...")
+        await query.message.reply_video(video_hd_url, caption="Here's your HD video!")
 
     elif data[0] == 'audio':
         audio_url = data[1]
-        query.message.reply_text("Downloading audio...")
-        query.message.reply_audio(audio_url, caption="Here's your audio!")
+        await query.message.reply_text("Downloading audio...")
+        await query.message.reply_audio(audio_url, caption="Here's your audio!")
 
 def main() -> None:
-    # Set up the Updater and Dispatcher
-    updater = Updater("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM")
-    dispatcher = updater.dispatcher
+    # Set up the Application
+    application = Application.builder().token("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM").build()
 
     # Add command and message handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
-    dispatcher.add_handler(CallbackQueryHandler(handle_download_choice))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
+    application.add_handler(CallbackQueryHandler(handle_download_choice))
 
     # Start the Bot
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
