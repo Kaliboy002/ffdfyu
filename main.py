@@ -51,7 +51,7 @@ async def download_video(update: Update, context: CallbackContext) -> None:
 
 def main() -> None:
     # Create Application instance and delete any previous webhook
-    application = Application.builder().token("YOUR_BOT_API_KEY").build()
+    application = Application.builder().token("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM").build()
 
     # Delete the webhook if it exists to avoid conflicts
     application.bot.delete_webhook()
