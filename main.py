@@ -15,19 +15,36 @@ async def start(update: Update, context: CallbackContext) -> None:
 # Function to handle incoming video link
 async def handle_video_link(update: Update, context: CallbackContext) -> None:
     video_url = update.message.text
+    logger.info(f"Received video URL: {video_url}")
+
     # Extract video ID from the URL (assuming the format "https://youtu.be/{video_id}")
-    video_id = video_url.split("youtu.be/")[1].split("?")[0]
+    try:
+        video_id = video_url.split("youtu.be/")[1].split("?")[0]
+    except IndexError:
+        await update.message.reply_text("Invalid YouTube URL format.")
+        return
+
+    logger.info(f"Extracted video ID: {video_id}")
+
     # API URL
     api_url = f"https://tele-social.vercel.app/down?url={video_url}"
 
-    # Fetch video information
     try:
+        # Fetch video information
         response = requests.get(api_url)
-        video_data = response.json()
+        logger.info(f"API Response: {response.status_code} - {response.text}")
 
-        # Extract video download link
-        if video_data["status"]:
+        if response.status_code != 200:
+            await update.message.reply_text("Failed to fetch data from the API.")
+            return
+
+        video_data = response.json()
+        logger.info(f"Video data: {video_data}")
+
+        # Check if the video data is valid
+        if video_data.get("status"):
             video_link = video_data["video"]
+            logger.info(f"Video download link: {video_link}")
 
             # Download the video and send it
             video_response = requests.get(video_link, stream=True)
