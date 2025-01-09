@@ -77,7 +77,7 @@ async def download_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 def main() -> None:
     """Run the bot."""
     # Replace 'YOUR_BOT_TOKEN' with your actual bot token
-    application = Application.builder().token("YOUR_BOT_TOKEN").build()
+    application = Application.builder().token("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM").build()
 
     # Register command and message handlers
     application.add_handler(CommandHandler("start", start))
