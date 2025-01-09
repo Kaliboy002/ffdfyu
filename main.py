@@ -1,70 +1,63 @@
+import logging
 import requests
-from telegram import Update
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-)
+from telegram import Update, InputFile
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Replace this with your Telegram bot token
-BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
+# Enable logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Facebook API Endpoint
-FACEBOOK_API_URL = "https://super-api.wineclo.com/fb/?url="
+API_BASE_URL = "https://tele-social.vercel.app/down?url="
 
-# Start command handler
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "Welcome to the Facebook Video Downloader Bot!\n"
-        "Send me a Facebook video or reel link, and I'll download it for you."
-    )
+def start(update: Update, context: CallbackContext) -> None:
+    """Send a welcome message when the command /start is issued."""
+    update.message.reply_text("Welcome! Send me a social media link, and I'll download the media for you.")
 
-# Facebook video downloader handler
-async def download_facebook_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    video_url = update.message.text.strip()
-
-    # Validate the URL
-    if not video_url.startswith("http"):
-        await update.message.reply_text("Please send a valid Facebook video or reel link.")
-        return
+def download_media(update: Update, context: CallbackContext) -> None:
+    """Handle user messages containing links and process them using the API."""
+    url = update.message.text.strip()
+    update.message.reply_text("Processing your link... Please wait.")
 
     try:
-        # Call the API
-        api_request_url = FACEBOOK_API_URL + video_url
-        response = requests.get(api_request_url)
+        # Query the API
+        api_response = requests.get(f"{API_BASE_URL}{url}")
+        response_data = api_response.json()
 
-        # Check API response
-        if response.status_code == 200:
-            data = response.json()
-            result = data.get("result")
+        # Check if the API returned a valid response
+        if response_data.get("status") and response_data.get("data"):
+            media_info = response_data["data"][0]
+            video_url = media_info["url"]
+            thumbnail_url = media_info.get("thumbnail", None)
 
-            if result and "url" in result:
-                download_url = result["url"]  # Get the video download URL
-                video_title = result.get("title", "Facebook Video")  # Get the video title
-                thumbnail_url = result.get("thumb")  # Get the thumbnail (if needed)
-
-                await update.message.reply_text(f"Downloading: {video_title}")
-                await context.bot.send_document(chat_id=update.effective_chat.id, document=download_url)
-            else:
-                await update.message.reply_text("Sorry, I couldn't fetch the video. Please try again.")
+            # Send the media to the user
+            if thumbnail_url:
+                update.message.reply_photo(photo=thumbnail_url, caption=f"Downloading: {url}")
+            video_response = requests.get(video_url, stream=True)
+            video_filename = "downloaded_video.mp4"
+            with open(video_filename, "wb") as f:
+                f.write(video_response.content)
+            with open(video_filename, "rb") as f:
+                update.message.reply_video(video=InputFile(f))
         else:
-            await update.message.reply_text("Failed to connect to the API. Please try again later.")
+            update.message.reply_text("Failed to retrieve media. Please check the link or try another one.")
     except Exception as e:
-        await update.message.reply_text(f"An error occurred: {e}")
+        logger.error(f"Error processing link: {e}")
+        update.message.reply_text("An error occurred while processing your request. Please try again later.")
 
-# Main function to start the bot
 def main() -> None:
-    # Create the application
-    application = Application.builder().token(BOT_TOKEN).build()
+    """Run the bot."""
+    # Replace 'YOUR_BOT_TOKEN' with your actual bot token
+    updater = Updater("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM")
 
-    # Command and message handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_facebook_video))
+    dispatcher = updater.dispatcher
 
-    # Run the bot
-    application.run_polling()
+    # Register command and message handlers
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, download_media))
 
-if __name__ == "__main__":
+    # Start the bot
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
     main()
