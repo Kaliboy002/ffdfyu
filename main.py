@@ -1,47 +1,53 @@
+import logging
 import requests
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Your bot's token
-BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
+# Enable logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Function to download video from the API
-def get_video_url(url: str):
-    api_url = f"https://tele-social.vercel.app/down?url={url}"
+# Function to handle the /start command
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text('Welcome! Send a YouTube video link, and I will send you the download link.')
+
+# Function to handle video download
+def download_video(update: Update, context: CallbackContext) -> None:
+    video_url = update.message.text
+    if "https://youtu.be/" not in video_url:
+        update.message.reply_text("Please send a valid YouTube link.")
+        return
+
+    # Call the API to get the video info
+    api_url = f"https://tele-social.vercel.app/down?url={video_url}"
     response = requests.get(api_url)
-    if response.status_code == 200:
-        data = response.json()
-        if data["status"]:
-            return data.get("video")  # Returns the direct video URL
-    return None
+    data = response.json()
 
-# Command to start the bot
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Hello! Send me a YouTube video link and I'll download and send it to you.")
-
-# Handle video links and send the video
-def handle_video_link(update: Update, context: CallbackContext):
-    url = update.message.text
-    video_url = get_video_url(url)
-    
-    if video_url:
-        update.message.reply_video(video_url)  # Send video directly to user
+    if data["status"]:
+        video_link = data["video"]
+        update.message.reply_text(f"Here is your download link: {video_link}")
     else:
-        update.message.reply_text("Sorry, I couldn't fetch the video. Please try again.")
+        update.message.reply_text("Sorry, I couldn't fetch the video. Please try again later.")
 
-# Main function to run the bot
 def main():
-    updater = Updater(BOT_TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+    # Your bot token from BotFather
+    token = '8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM'
 
-    # Command handler for /start
-    dispatcher.add_handler(CommandHandler("start", start))
-    
-    # Handler for receiving messages (YouTube links)
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_video_link))
-    
-    # Start the bot
+    # Create the Updater and pass it your bot's token
+    updater = Updater(token, use_context=True)
+
+    # Get the dispatcher to register handlers
+    dp = updater.dispatcher
+
+    # Add handlers for start command and message (to handle video URL)
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, download_video))
+
+    # Start the Bot
     updater.start_polling()
+
+    # Run the bot until you send a signal to stop
     updater.idle()
 
 if __name__ == '__main__':
