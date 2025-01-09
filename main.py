@@ -1,85 +1,67 @@
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.constants import ParseMode
 import requests
-from telegram import Update, ParseMode
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Function to fetch video data from the first API
-def fetch_video_from_api1(url):
-    api_url = f"https://tele-social.vercel.app/down?url={url}"
-    response = requests.get(api_url)
-    if response.status_code == 200:
-        return response.json()
-    return None
+# Define the two APIs
+API_1 = "https://tele-social.vercel.app/down?url="
+API_2 = "https://api.smtv.uz/yt/?url="
 
-# Function to fetch video data from the second API
-def fetch_video_from_api2(url):
-    api_url = f"https://api.smtv.uz/yt/?url={url}"
-    response = requests.get(api_url)
-    if response.status_code == 200:
-        return response.json()
-    return None
+# Function to handle start command
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Send me a YouTube link, and I'll fetch videos from two different APIs!"
+    )
 
-# Handler function for start command
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Send me a YouTube video link, and I will fetch video links for you!")
+# Function to process YouTube links
+async def process_youtube_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.text:
+        return
 
-# Handler function for processing YouTube links
-def handle_message(update: Update, context: CallbackContext):
-    user_message = update.message.text
-    if "youtu" in user_message:  # Simple check for YouTube links
-        update.message.reply_text("Fetching video data...")
-        
-        # Fetch data from both APIs
-        data_api1 = fetch_video_from_api1(user_message)
-        data_api2 = fetch_video_from_api2(user_message)
-        
-        # Prepare response for API1
-        if data_api1 and data_api1.get("status"):
-            video_link_api1 = data_api1.get("video", "Not available")
-            video_hd_link_api1 = data_api1.get("video_hd", "Not available")
-            update.message.reply_text(
-                f"*API 1 Results:*\n"
-                f"Title: {data_api1.get('title', 'N/A')}\n"
-                f"Channel: {data_api1.get('channel', 'N/A')}\n"
-                f"[Standard Quality]({video_link_api1})\n"
-                f"[HD Quality]({video_hd_link_api1})",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-        else:
-            update.message.reply_text("Failed to fetch data from API 1.")
-        
-        # Prepare response for API2
-        if data_api2 and not data_api2.get("error"):
-            medias = data_api2.get("medias", [])
-            if medias:
-                video_link_api2 = medias[0].get("url", "Not available")
-                update.message.reply_text(
-                    f"*API 2 Results:*\n"
-                    f"Title: {data_api2.get('title', 'N/A')}\n"
-                    f"Author: {data_api2.get('author', 'N/A')}\n"
-                    f"[Video Link]({video_link_api2})",
-                    parse_mode=ParseMode.MARKDOWN,
-                )
-            else:
-                update.message.reply_text("No video links available in API 2 response.")
-        else:
-            update.message.reply_text("Failed to fetch data from API 2.")
+    youtube_url = update.message.text.strip()
+    if "youtu" not in youtube_url:
+        await update.message.reply_text("Please send a valid YouTube link!")
+        return
+
+    # Fetch from API 1
+    api1_response = requests.get(f"{API_1}{youtube_url}")
+    if api1_response.status_code == 200:
+        api1_data = api1_response.json()
+        video1_url = api1_data.get("video", "Not Available")
+        video1_title = api1_data.get("title", "Unknown Title")
+        video1_thumbnail = api1_data.get("thumb", "")
+
+        text1 = f"**Title:** {video1_title}\n[Download Video]( {video1_url})"
+        await update.message.reply_photo(photo=video1_thumbnail, caption=text1, parse_mode=ParseMode.MARKDOWN)
     else:
-        update.message.reply_text("Please send a valid YouTube link!")
+        await update.message.reply_text("Failed to fetch data from API 1!")
 
-# Main function to run the bot
+    # Fetch from API 2
+    api2_response = requests.get(f"{API_2}{youtube_url}")
+    if api2_response.status_code == 200:
+        api2_data = api2_response.json()
+        video2_url = api2_data["medias"][0].get("url", "Not Available")
+        video2_title = api2_data.get("title", "Unknown Title")
+        video2_thumbnail = api2_data.get("thumbnail", "")
+
+        text2 = f"**Title:** {video2_title}\n[Download Video]( {video2_url})"
+        await update.message.reply_photo(photo=video2_thumbnail, caption=text2, parse_mode=ParseMode.MARKDOWN)
+    else:
+        await update.message.reply_text("Failed to fetch data from API 2!")
+
+# Main function to set up the bot
 def main():
-    # Replace YOUR_BOT_TOKEN with your actual Telegram bot token
-    updater = Updater("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM", use_context=True)
-    
+    # Replace 'YOUR_BOT_TOKEN' with your Telegram bot token
+    application = ApplicationBuilder().token("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM").build()
+
     # Command handlers
-    updater.dispatcher.add_handler(CommandHandler("start", start))
-    
-    # Message handler for YouTube links
-    updater.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    
-    # Start the bot
-    updater.start_polling()
-    updater.idle()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", start))
+
+    # Message handler
+    application.add_handler(CommandHandler("message", process_youtube_link))
+
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
