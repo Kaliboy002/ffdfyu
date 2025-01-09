@@ -38,10 +38,14 @@ async def download_facebook_video(update: Update, context: ContextTypes.DEFAULT_
         # Check API response
         if response.status_code == 200:
             data = response.json()
-            download_url = data.get("download_url")  # Get the video download URL
+            result = data.get("result")
 
-            if download_url:
-                await update.message.reply_text("Downloading your video... Please wait!")
+            if result and "url" in result:
+                download_url = result["url"]  # Get the video download URL
+                video_title = result.get("title", "Facebook Video")  # Get the video title
+                thumbnail_url = result.get("thumb")  # Get the thumbnail (if needed)
+
+                await update.message.reply_text(f"Downloading: {video_title}")
                 await context.bot.send_document(chat_id=update.effective_chat.id, document=download_url)
             else:
                 await update.message.reply_text("Sorry, I couldn't fetch the video. Please try again.")
