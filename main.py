@@ -1,7 +1,7 @@
 import logging
 import requests
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 # Enable logging for debugging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -9,11 +9,11 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # Function to handle the /start command
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Hi! Send me a YouTube video link and I will download it for you.')
+async def start(update: Update, context) -> None:
+    await update.message.reply_text('Hi! Send me a YouTube video link and I will download it for you.')
 
 # Function to handle the downloading process
-def download_video(update: Update, context: CallbackContext) -> None:
+async def download_video(update: Update, context) -> None:
     url = update.message.text.strip()
 
     # Check if the link is from YouTube
@@ -31,31 +31,27 @@ def download_video(update: Update, context: CallbackContext) -> None:
                 video_title = video_data.get("title")
                 
                 # Send the video to the user
-                update.message.reply_text(f"Downloading: {video_title}")
-                update.message.reply_video(video_url, caption=video_title)
+                await update.message.reply_text(f"Downloading: {video_title}")
+                await update.message.reply_video(video_url, caption=video_title)
             else:
-                update.message.reply_text("Sorry, I couldn't fetch the video. Please try again.")
+                await update.message.reply_text("Sorry, I couldn't fetch the video. Please try again.")
         except Exception as e:
-            update.message.reply_text("An error occurred while fetching the video.")
+            await update.message.reply_text("An error occurred while fetching the video.")
             logger.error(f"Error: {e}")
     else:
-        update.message.reply_text("Please send a valid YouTube link.")
+        await update.message.reply_text("Please send a valid YouTube link.")
 
 # Main function to set up the bot
 def main():
-    # Create an Updater object with your bot token
-    updater = Updater("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM")
-
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    # Create an Application object with your bot token
+    application = Application.builder().token("8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM").build()
 
     # Register the handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, download_video))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download_video))
 
     # Start the bot
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
