@@ -6,66 +6,63 @@ import os
 # Replace with your Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
-# API base URLs
-PRIMARY_API_BASE_URL = "https://api.smtv.uz/pin/?url="
-FALLBACK_API_BASE_URL = "https://tele-social.vercel.app/down?url="
+# API base URL for Snapchat downloader
+API_BASE_URL = "https://tele-social.vercel.app/down?url="
 
 # Start command handler
 async def start(update: Update, context):
-    await update.message.reply_text("Welcome! Send me a Pinterest URL, and I'll fetch the media for you.")
+    await update.message.reply_text("Welcome! Send me a Snapchat media link, and I'll fetch it for you.")
 
-# Function to process Pinterest URL
-async def fetch_pinterest_media(update: Update, context):
+# Function to process Snapchat media URL
+async def fetch_snapchat_media(update: Update, context):
     message = update.message.text
-    if "pinterest.com" not in message:
-        await update.message.reply_text("Please send a valid Pinterest URL.")
+    if "snapchat.com" not in message:
+        await update.message.reply_text("Please send a valid Snapchat URL.")
         return
 
     await update.message.reply_text("Processing your request. Please wait...")
 
-    # Try the primary API (smtv.uz)
+    # Make the API request to get media data
     try:
-        response = requests.get(PRIMARY_API_BASE_URL + message)
+        # Build the full API URL
+        response = requests.get(API_BASE_URL + message)
         data = response.json()
 
-        if "medias" in data and len(data["medias"]) > 0:
-            # Send all available media qualities to the user
-            for media in data["medias"]:
-                media_url = media["url"]
-                quality = media["quality"]
-                file_type = media["type"]
-
-                # Send each image URL
-                if file_type == "jpg":
-                    await update.message.reply_photo(media_url, caption=f"Quality: {quality}")
-                # You can handle other file types here if needed
-
-        else:
-            raise Exception("No media found in the primary API response.")
-
-    except Exception as primary_error:
-        # If the primary API fails, use the fallback API (Tele-Social)
-        try:
-            response = requests.get(FALLBACK_API_BASE_URL + message)
-            data = response.json()
-
-            if data.get("status") and "url" in data:
-                media_url = data["url"]
-                filename = data["filename"]
-
-                # Send the media from the fallback API
-                await update.message.reply_photo(media_url, caption=f"Media: {filename}")
-
-            else:
-                raise Exception("No media found in the fallback API response.")
-
-        except Exception as fallback_error:
-            await update.message.reply_text(
-                f"An error occurred while processing your request.\n"
-                f"Primary API Error: {primary_error}\n"
-                f"Fallback API Error: {fallback_error}"
-            )
+        # Check if the media exists and we have a download link
+        if data["status"] is False:
+            await update.message.reply_text(f"Error: {data['Message']}")
             return
+        
+        # Check if video media type is present
+        for media in data["Message"]["picker"]:
+            if media["type"] == "video":
+                video_url = media["url"]
+                video_thumb = media["thumb"]
+
+                # Download the video
+                video_file = "downloaded_snapchat_video.mp4"
+                with requests.get(video_url, stream=True) as video_response:
+                    video_response.raise_for_status()
+                    with open(video_file, "wb") as f:
+                        for chunk in video_response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+
+                # Send the video to the user
+                with open(video_file, "rb") as video:
+                    await update.message.reply_video(
+                        video,
+                        caption="Here's your Snapchat media!"
+                    )
+
+                # Clean up the downloaded file
+                os.remove(video_file)
+                return
+
+        # If no video found
+        await update.message.reply_text("No video media found in the provided Snapchat URL.")
+        
+    except Exception as e:
+        await update.message.reply_text(f"An error occurred: {str(e)}")
 
 # Main function
 def main():
@@ -74,7 +71,7 @@ def main():
 
     # Add command and message handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fetch_pinterest_media))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fetch_snapchat_media))
 
     # Start the bot
     app.run_polling()
