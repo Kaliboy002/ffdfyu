@@ -4,7 +4,7 @@ import logging
 import hashlib
 import requests
 from functools import lru_cache
-from telegram import Update, InputMediaPhoto
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 import yt_dlp as YoutubeDL
 
@@ -55,7 +55,7 @@ class YoutubeDownloader:
             ydl.download([url])
 
 async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text("Hi! Send me a YouTube video link, and I will send you the video.")
+    await update.message.reply_text("Hi! Send me a YouTube video link, and I will send you the downloaded video.")
 
 async def handle_video_link(update: Update, context: CallbackContext):
     video_url = update.message.text.strip()
@@ -65,44 +65,17 @@ async def handle_video_link(update: Update, context: CallbackContext):
         await update.message.reply_text("Invalid YouTube URL. Please try again.")
         return
 
-    # Attempt API-based download for short videos
-    api_url_short = f"https://tele-social.vercel.app/down?url={video_url}"
-    api_url_alternate = f"https://api.smtv.uz/yt/?url={video_url}"
-
-    try:
-        # Try Tele-Social API
-        response = requests.get(api_url_short)
-        if response.status_code == 200:
-            video_data = response.json()
-            if video_data.get("status"):
-                video_link = video_data["video"]
-                await update.message.reply_text(f"Short video link: {video_link}")
-                return
-
-        # Try SMTV API as a fallback
-        response = requests.get(api_url_alternate)
-        if response.status_code == 200:
-            video_data = response.json()
-            if "medias" in video_data and video_data["medias"]:
-                video_info = video_data["medias"][0]
-                video_link = video_info["url"]
-                video_title = video_data.get("title", "Downloaded Video")
-                await update.message.reply_text(f"Alternate short video link: {video_link}")
-                return
-    except Exception as e:
-        logger.error(f"Error with APIs: {e}")
-
-    # If APIs fail or for long videos, use direct download with YoutubeDL
+    # If the link is valid, use yt-dlp to get formats and download the video
     formats = YoutubeDownloader._get_formats(video_url)
-    best_format = formats[-1]  # Assuming last format is the best
+    best_format = formats[-1]  # Assuming the last format is the best
     file_path = YoutubeDownloader.get_file_path(video_url, best_format['format_id'], best_format['ext'])
 
     try:
-        if not os.path.isfile(file_path):
+        if not os.path.isfile(file_path):  # Download only if file doesn't exist
             YoutubeDownloader.download_video(video_url, best_format['format_id'], file_path)
 
         with open(file_path, 'rb') as video_file:
-            await update.message.reply_video(video=video_file, caption="Here is your video!")
+            await update.message.reply_video(video=video_file, caption="Here is your downloaded video!")
     except Exception as e:
         logger.error(f"Error during download: {e}")
         await update.message.reply_text("An error occurred while processing the video.")
