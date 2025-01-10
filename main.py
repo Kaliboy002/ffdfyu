@@ -1,6 +1,12 @@
 import requests
-from telegram import Update, InputFile
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
 # Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
@@ -8,20 +14,21 @@ BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 # API Endpoint for Facebook video download
 FACEBOOK_API_URL = "https://super-api.wineclo.com/fb/?url="
 
+
 # Command to start the bot
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
         "Welcome! Send me a Facebook video link, and I'll download the video for you."
     )
 
+
 # Handle messages with Facebook video links
-def handle_message(update: Update, context: CallbackContext) -> None:
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_message = update.message.text
-    chat_id = update.message.chat_id
 
     # Check if the message is a valid URL
     if user_message.startswith("http"):
-        update.message.reply_text("Processing your link... Please wait.")
+        await update.message.reply_text("Processing your link... Please wait.")
 
         # Fetch the video download link
         response = requests.get(FACEBOOK_API_URL + user_message)
@@ -34,35 +41,31 @@ def handle_message(update: Update, context: CallbackContext) -> None:
                 title = data["result"].get("title", "Here is your video!")
 
                 # Send the video to the user
-                update.message.reply_video(video=video_url, caption=title)
+                await update.message.reply_video(video=video_url, caption=title)
             else:
-                update.message.reply_text(
+                await update.message.reply_text(
                     "Failed to fetch the video. Please ensure the link is valid."
                 )
         else:
-            update.message.reply_text("Error connecting to the video download API.")
+            await update.message.reply_text("Error connecting to the video download API.")
     else:
-        update.message.reply_text("Please send a valid Facebook video link.")
+        await update.message.reply_text("Please send a valid Facebook video link.")
+
 
 # Main function to start the bot
 def main():
-    # Create the Updater and pass it your bot's token
-    updater = Updater(BOT_TOKEN)
-
-    # Get the dispatcher to register handlers
-    dp = updater.dispatcher
+    # Create the Application and pass it your bot's token
+    application = Application.builder().token(BOT_TOKEN).build()
 
     # Register the start command handler
-    dp.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("start", start))
 
     # Register a message handler for video links
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Start the bot
-    updater.start_polling()
+    application.run_polling()
 
-    # Run the bot until you press Ctrl+C
-    updater.idle()
 
 if __name__ == "__main__":
     main()
