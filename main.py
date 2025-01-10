@@ -6,7 +6,7 @@ import os
 # Replace with your Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
-# API base URL for YouTube video downloader
+# API base URL for YouTube downloader
 API_BASE_URL = "https://api.smtv.uz/yt/?url="
 
 # Start command handler
@@ -16,7 +16,7 @@ async def start(update: Update, context):
 # Function to process YouTube URL
 async def fetch_youtube_media(update: Update, context):
     message = update.message.text
-    if "youtu.be" not in message and "youtube.com" not in message:
+    if "youtube.com" not in message and "youtu.be" not in message:
         await update.message.reply_text("Please send a valid YouTube URL.")
         return
 
@@ -27,15 +27,13 @@ async def fetch_youtube_media(update: Update, context):
         response = requests.get(API_BASE_URL, params={'url': message})
         data = response.json()
 
-        # Check if the video exists and we have a media link
-        if "error" not in data and "medias" in data and len(data["medias"]) > 0:
+        # Check if the video exists and we have a download link
+        if "medias" in data and len(data["medias"]) > 0:
             video_url = data["medias"][0]["url"]
             video_title = data["title"]
-            quality = data["medias"][0]["quality"]
-            video_extension = data["medias"][0]["extension"]
 
             # Download the video
-            video_file = f"downloaded_video.{video_extension}"
+            video_file = "downloaded_video.mp4"
             with requests.get(video_url, stream=True) as video_response:
                 video_response.raise_for_status()
                 with open(video_file, "wb") as f:
@@ -44,16 +42,16 @@ async def fetch_youtube_media(update: Update, context):
 
             # Send the video to the user
             with open(video_file, "rb") as video:
-                # Send video with a caption including title and quality
+                # Send video with a caption (no thumbnail URL)
                 await update.message.reply_video(
                     video,
-                    caption=f"Here's your video!\n\nTitle: {video_title}\nQuality: {quality}"
+                    caption=f"Here's your video!\n\nTitle: {video_title}"
                 )
 
             # Clean up the downloaded file
             os.remove(video_file)
         else:
-            await update.message.reply_text("Sorry, no video found in the provided URL.")
+            await update.message.reply_text("Sorry, no media found in the provided URL.")
     except Exception as e:
         await update.message.reply_text(f"An error occurred: {str(e)}")
 
