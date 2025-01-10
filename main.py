@@ -1,6 +1,6 @@
 import requests
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 API_TOKEN = '8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM'  # Replace with your bot's API token
 
@@ -11,10 +11,10 @@ def get_video_data(fb_url):
     return response.json()
 
 # Function to handle the '/video' command
-def video(update: Update, context: CallbackContext):
+async def video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Get the Facebook URL from the command arguments
     if len(context.args) == 0:
-        update.message.reply_text("Please provide a Facebook URL.")
+        await update.message.reply_text("Please provide a Facebook URL.")
         return
     
     fb_url = context.args[0]
@@ -29,22 +29,22 @@ def video(update: Update, context: CallbackContext):
         thumbnail_url = video_info["thumbnail"]
         
         # Send video and thumbnail to the user
-        update.message.reply_text("Here is your video:", reply_markup=None)
-        update.message.reply_video(video_url, caption="Video", thumb=thumbnail_url)
+        await update.message.reply_text("Here is your video:")
+        await update.message.reply_video(video_url, caption="Video", thumb=thumbnail_url)
     else:
-        update.message.reply_text("Sorry, the video could not be retrieved.")
+        await update.message.reply_text("Sorry, the video could not be retrieved.")
 
 # Main function to start the bot
 def main():
-    updater = Updater(API_TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+    # Create an Application instance with your token
+    application = Application.builder().token(API_TOKEN).build()
     
     # Add command handler for the '/video' command
-    dispatcher.add_handler(CommandHandler("video", video))
+    video_handler = CommandHandler("video", video)
+    application.add_handler(video_handler)
     
     # Start polling updates
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
