@@ -4,7 +4,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import os
 
 # Replace with your Telegram bot token
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
 # API Base URLs
 YOUTUBE_API_URL = "https://api.smtv.uz/yt/?url="
