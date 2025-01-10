@@ -6,32 +6,32 @@ import os
 # Replace with your Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
-# API base URLs for Twitter media downloader
-API_BASE_URL = "https://super-api.wineclo.com/twitter/?url="
-TELE_SERVICE_API_URL = "https://tele-social.vercel.app/down?url="
+# API base URLs for YouTube downloader
+API_BASE_URL_1 = "https://api.smtv.uz/yt/?url="
+API_BASE_URL_2 = "https://tele-social.vercel.app/down?url="
 
 # Start command handler
 async def start(update: Update, context):
-    await update.message.reply_text("Welcome! Send me a Twitter URL with a video, and I'll fetch the video for you.")
+    await update.message.reply_text("Welcome! Send me a YouTube URL, and I'll fetch the video for you.")
 
-# Function to process Twitter URL
-async def fetch_twitter_media(update: Update, context):
+# Function to process YouTube URL
+async def fetch_youtube_media(update: Update, context):
     message = update.message.text
-    if "twitter.com" not in message:
-        await update.message.reply_text("Please send a valid Twitter URL.")
+    if "youtube.com" not in message and "youtu.be" not in message:
+        await update.message.reply_text("Please send a valid YouTube URL.")
         return
 
     await update.message.reply_text("Processing your request. Please wait...")
 
-    # Try Super API first
+    # Try the first API
     try:
-        response = requests.get(API_BASE_URL, params={'url': message})
+        response = requests.get(API_BASE_URL_1, params={'url': message})
         data = response.json()
 
-        # Check if Super API has returned a media URL
-        if "result" in data and "url" in data["result"]:
-            video_url = data["result"]["url"]
-            video_title = data["result"]["title"]
+        # Check if the video exists and we have a download link
+        if "medias" in data and len(data["medias"]) > 0:
+            video_url = data["medias"][0]["url"]
+            video_title = data["title"]
 
             # Download the video
             video_file = "downloaded_video.mp4"
@@ -43,7 +43,39 @@ async def fetch_twitter_media(update: Update, context):
 
             # Send the video to the user
             with open(video_file, "rb") as video:
-                # Send video with a caption (without thumbnail)
+                # Send video with a caption (no thumbnail URL)
+                await update.message.reply_video(
+                    video,
+                    caption=f"Here's your video!\n\nTitle: {video_title}"
+                )
+
+            # Clean up the downloaded file
+            os.remove(video_file)
+            return
+    except Exception as e:
+        print(f"API 1 failed: {str(e)}")
+
+    # If the first API fails, try the second API
+    try:
+        response = requests.get(API_BASE_URL_2, params={'url': message})
+        data = response.json()
+
+        # Check if the video exists and we have a download link
+        if data.get("status") and "video" in data:
+            video_url = data["video"]
+            video_title = data["title"]
+
+            # Download the video
+            video_file = "downloaded_video.mp4"
+            with requests.get(video_url, stream=True) as video_response:
+                video_response.raise_for_status()
+                with open(video_file, "wb") as f:
+                    for chunk in video_response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+            # Send the video to the user
+            with open(video_file, "rb") as video:
+                # Send video with a caption (no thumbnail URL)
                 await update.message.reply_video(
                     video,
                     caption=f"Here's your video!\n\nTitle: {video_title}"
@@ -52,42 +84,9 @@ async def fetch_twitter_media(update: Update, context):
             # Clean up the downloaded file
             os.remove(video_file)
         else:
-            await update.message.reply_text("No media found in the provided URL from Super API.")
+            await update.message.reply_text("Sorry, no media found in the provided URL.")
     except Exception as e:
-        await update.message.reply_text(f"Super API error: {str(e)}. Trying Tele-Service API...")
-
-        # If Super API fails, use Tele-Service API
-        try:
-            tele_service_response = requests.get(TELE_SERVICE_API_URL + message)
-            tele_service_data = tele_service_response.json()
-
-            # Check if Tele-Service API returned a media URL
-            if tele_service_data.get("status") and "url" in tele_service_data["result"]:
-                video_url = tele_service_data["result"]["url"]
-                video_title = tele_service_data["result"]["title"]
-
-                # Download the video
-                video_file = "downloaded_video.mp4"
-                with requests.get(video_url, stream=True) as video_response:
-                    video_response.raise_for_status()
-                    with open(video_file, "wb") as f:
-                        for chunk in video_response.iter_content(chunk_size=8192):
-                            f.write(chunk)
-
-                # Send the video to the user
-                with open(video_file, "rb") as video:
-                    # Send video with a caption (without thumbnail)
-                    await update.message.reply_video(
-                        video,
-                        caption=f"Here's your video!\n\nTitle: {video_title}"
-                    )
-
-                # Clean up the downloaded file
-                os.remove(video_file)
-            else:
-                await update.message.reply_text("No media found in the provided URL from Tele-Service API.")
-        except Exception as e:
-            await update.message.reply_text(f"Tele-Service API error: {str(e)}")
+        await update.message.reply_text(f"An error occurred: {str(e)}")
 
 # Main function
 def main():
@@ -96,7 +95,7 @@ def main():
 
     # Add command and message handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fetch_twitter_media))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fetch_youtube_media))
 
     # Start the bot
     app.run_polling()
