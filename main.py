@@ -7,8 +7,8 @@ import os
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
 # API base URLs
-PRIMARY_API_BASE_URL = "https://api.smtv.uz/yst/"
-FALLBACK_API_BASE_URL = "https://tele-social.vercel.app/down?url="
+PRIMARY_API_BASE_URL = "https://api.smtv.uz/yt/"
+FALLBACK_API_BASE_URL = "https://tele-tsocial.vercel.app/down?url="
 
 # Start command handler
 async def start(update: Update, context):
