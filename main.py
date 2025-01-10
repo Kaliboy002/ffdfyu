@@ -59,7 +59,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Main function to run the bot
 def main():
-    bot_token = "YOUR_BOT_TOKEN"
+    bot_token = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
     app = ApplicationBuilder().token(bot_token).build()
 
     app.add_handler(CommandHandler("start", start))
