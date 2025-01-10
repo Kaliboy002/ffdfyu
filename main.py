@@ -24,27 +24,21 @@ async def fetch_soundcloud_media(update: Update, context):
     # Try the super-api API
     try:
         response = requests.get(SUPER_API_URL + message)
-        data = response.json()
+        
+        # Check if the response was successful (status code 200)
+        if response.status_code == 200:
+            data = response.json()
 
-        if "result" in data:
-            mp3_url = data["result"]["url"]
-            title = data["result"]["title"]
-            thumbnail = data["result"].get("thumb", None)
+            if "result" in data:
+                mp3_url = data["result"]["url"]
+                title = data["result"]["title"]
 
-            # Send the thumbnail image with the title
-            if thumbnail:
-                await update.message.reply_photo(
-                    thumbnail,
-                    caption=f"Title: {title}",
-                    reply_markup=None
-                )
+                # Send the MP3 audio with title
+                await update.message.reply_audio(mp3_url, caption=f"Enjoy the music: {title}")
             else:
-                await update.message.reply_text(f"Title: {title}")
-
-            # Send the MP3 audio
-            await update.message.reply_audio(mp3_url, caption=f"Enjoy the music: {title}")
+                await update.message.reply_text("Sorry, no valid media found in the provided URL.")
         else:
-            await update.message.reply_text("Sorry, no valid media found in the provided URL.")
+            await update.message.reply_text(f"Failed to retrieve data from API. Status code: {response.status_code}")
 
     except Exception as e:
         await update.message.reply_text(f"An error occurred: {str(e)}")
