@@ -6,18 +6,18 @@ import os
 # Replace with your Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
-# API base URL for YouTube downloader
-API_BASE_URL = "https://api.smtv.uz/yt/?url="
+# API base URL for Twitter media downloader
+API_BASE_URL = "https://super-api.wineclo.com/twitter/?url="
 
 # Start command handler
 async def start(update: Update, context):
-    await update.message.reply_text("Welcome! Send me a YouTube URL, and I'll fetch the video for you.")
+    await update.message.reply_text("Welcome! Send me a Twitter URL with a video, and I'll fetch the video for you.")
 
-# Function to process YouTube URL
-async def fetch_youtube_media(update: Update, context):
+# Function to process Twitter URL
+async def fetch_twitter_media(update: Update, context):
     message = update.message.text
-    if "youtube.com" not in message and "youtu.be" not in message:
-        await update.message.reply_text("Please send a valid YouTube URL.")
+    if "twitter.com" not in message:
+        await update.message.reply_text("Please send a valid Twitter URL.")
         return
 
     await update.message.reply_text("Processing your request. Please wait...")
@@ -28,9 +28,10 @@ async def fetch_youtube_media(update: Update, context):
         data = response.json()
 
         # Check if the video exists and we have a download link
-        if "medias" in data and len(data["medias"]) > 0:
-            video_url = data["medias"][0]["url"]
-            video_title = data["title"]
+        if "result" in data and "url" in data["result"]:
+            video_url = data["result"]["url"]
+            video_title = data["result"]["title"]
+            video_thumb = data["result"]["thumb"]
 
             # Download the video
             video_file = "downloaded_video.mp4"
@@ -42,10 +43,11 @@ async def fetch_youtube_media(update: Update, context):
 
             # Send the video to the user
             with open(video_file, "rb") as video:
-                # Send video with a caption (no thumbnail URL)
+                # Send video with a caption and thumbnail
                 await update.message.reply_video(
                     video,
-                    caption=f"Here's your video!\n\nTitle: {video_title}"
+                    caption=f"Here's your video!\n\nTitle: {video_title}",
+                    thumb=video_thumb
                 )
 
             # Clean up the downloaded file
@@ -62,7 +64,7 @@ def main():
 
     # Add command and message handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fetch_youtube_media))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fetch_twitter_media))
 
     # Start the bot
     app.run_polling()
