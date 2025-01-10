@@ -31,7 +31,6 @@ async def fetch_twitter_media(update: Update, context):
         if "result" in data and "url" in data["result"]:
             video_url = data["result"]["url"]
             video_title = data["result"]["title"]
-            video_thumb = data["result"]["thumb"]
 
             # Download the video
             video_file = "downloaded_video.mp4"
@@ -43,11 +42,10 @@ async def fetch_twitter_media(update: Update, context):
 
             # Send the video to the user
             with open(video_file, "rb") as video:
-                # Send video with a caption and thumbnail
+                # Send video with a caption (without thumbnail)
                 await update.message.reply_video(
                     video,
-                    caption=f"Here's your video!\n\nTitle: {video_title}",
-                    thumb=video_thumb
+                    caption=f"Here's your video!\n\nTitle: {video_title}"
                 )
 
             # Clean up the downloaded file
