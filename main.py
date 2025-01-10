@@ -17,9 +17,15 @@ async def handle_video_link(update: Update, context: CallbackContext) -> None:
     video_url = update.message.text
     logger.info(f"Received video URL: {video_url}")
 
-    # Extract video ID from the URL (assuming the format "https://youtu.be/{video_id}")
+    # Extract video ID from the URL (supporting both "youtu.be" and "youtube.com")
     try:
-        video_id = video_url.split("youtu.be/")[1].split("?")[0]
+        if "youtu.be" in video_url:
+            video_id = video_url.split("youtu.be/")[1].split("?")[0]
+        elif "youtube.com" in video_url and "v=" in video_url:
+            video_id = video_url.split("v=")[1].split("&")[0]
+        else:
+            await update.message.reply_text("Invalid YouTube URL format.")
+            return
     except IndexError:
         await update.message.reply_text("Invalid YouTube URL format.")
         return
@@ -40,7 +46,6 @@ async def handle_video_link(update: Update, context: CallbackContext) -> None:
             video_data = response.json()
             logger.info(f"Video data from API 1: {video_data}")
 
-            # Check if the video data is valid
             if video_data.get("status"):
                 video_link = video_data["video"]
                 logger.info(f"Video download link from API 1: {video_link}")
@@ -61,7 +66,6 @@ async def handle_video_link(update: Update, context: CallbackContext) -> None:
             video_data = response.json()
             logger.info(f"Video data from API 2: {video_data}")
 
-            # Check if the video data is valid and contains download link
             if video_data.get("error"):
                 await update.message.reply_text("Sorry, there was an error processing the video.")
                 return
@@ -81,6 +85,7 @@ async def handle_video_link(update: Update, context: CallbackContext) -> None:
                 # Send the video to the user
                 await update.message.reply_video(video=video_file, caption=video_title, thumb=video_thumbnail)
                 return  # Exit after sending the video
+
         else:
             await update.message.reply_text("Failed to fetch data from both APIs.")
     except Exception as e:
@@ -100,6 +105,10 @@ def main() -> None:
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_video_link))
 
     # Start the Bot
+    application.run_polling()
+
+if __name__ == '__main__':
+    main()    # Start the Bot
     application.run_polling()
 
 if __name__ == '__main__':
