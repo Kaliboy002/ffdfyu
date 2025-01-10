@@ -1,94 +1,96 @@
-import os
-import re
 import logging
-import hashlib
 import requests
-from functools import lru_cache
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-import yt_dlp as YoutubeDL
 
 # Enable logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class YoutubeDownloader:
-    MAXIMUM_DOWNLOAD_SIZE_MB = 1000  # Limit for direct downloads
-    DOWNLOAD_DIR = "repository/Youtube"
+# Function to start the bot
+async def start(update: Update, context: CallbackContext) -> None:
+    await update.message.reply_text("Hi! Send me a YouTube video link, and I will send you the video.")
 
-    @staticmethod
-    def initialize():
-        # Check if the directory exists; if not, create it.
-        if not os.path.isdir(YoutubeDownloader.DOWNLOAD_DIR):
-            os.makedirs(YoutubeDownloader.DOWNLOAD_DIR)  # This ensures that parent directories are created if needed.
+# Function to fetch video using Tele-Social API
+async def fetch_video_from_tele_social(video_url: str):
+    api_url = f"https://tele-social.vercel.app/down?url={video_url}"
+    try:
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            video_data = response.json()
+            if video_data.get("status"):
+                return video_data["video"], video_data.get("title", "No Title")
+        else:
+            logger.error(f"Tele-Social API error: {response.status_code}")
+            return None, None
+    except Exception as e:
+        logger.error(f"Error in Tele-Social API: {e}")
+        return None, None
 
-    @staticmethod
-    def is_youtube_link(url):
-        youtube_patterns = [
-            r'(https?\:\/\/)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11}).*',
-            r'(https?\:\/\/)?www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?!.*list=)',
-            r'(https?\:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})(?!.*list=)',
-        ]
-        for pattern in youtube_patterns:
-            if re.match(pattern, url):
-                return True
-        return False
+# Function to fetch video using SMTV API
+async def fetch_video_from_smtv(video_url: str):
+    api_url = f"https://api.smtv.uz/yt/?url={video_url}"
+    try:
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            video_data = response.json()
+            if "medias" in video_data and video_data["medias"]:
+                video_info = video_data["medias"][0]
+                return video_info["url"], video_data.get("title", "No Title"), video_data.get("thumbnail", "")
+        else:
+            logger.error(f"SMTV API error: {response.status_code}")
+            return None, None, None
+    except Exception as e:
+        logger.error(f"Error in SMTV API: {e}")
+        return None, None, None
 
-    @lru_cache(maxsize=128)
-    def get_file_path(url, format_id, extension):
-        # Generate a unique file name based on the URL and format ID
-        hashed_url = hashlib.blake2b((url + format_id + extension).encode()).hexdigest()
-        filename = f"{hashed_url}.{extension}"
-        return os.path.join(YoutubeDownloader.DOWNLOAD_DIR, filename)
-
-    @staticmethod
-    def _get_formats(url):
-        ydl_opts = {'listformats': True, 'quiet': True}
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-        return info['formats']
-
-    @staticmethod
-    def download_video(url, format_id, file_path):
-        ydl_opts = {'format': format_id, 'outtmpl': file_path, 'quiet': True}
-        with YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-
-async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text("Hi! Send me a YouTube video link, and I will send you the downloaded video.")
-
-async def handle_video_link(update: Update, context: CallbackContext):
+# Function to handle incoming video link
+async def handle_video_link(update: Update, context: CallbackContext) -> None:
     video_url = update.message.text.strip()
     logger.info(f"Received video URL: {video_url}")
 
-    if not YoutubeDownloader.is_youtube_link(video_url):
+    # Check if the URL is valid YouTube URL
+    if "youtube.com" not in video_url and "youtu.be" not in video_url:
         await update.message.reply_text("Invalid YouTube URL. Please try again.")
         return
 
-    # If the link is valid, use yt-dlp to get formats and download the video
-    formats = YoutubeDownloader._get_formats(video_url)
-    best_format = formats[-1]  # Assuming the last format is the best
-    file_path = YoutubeDownloader.get_file_path(video_url, best_format['format_id'], best_format['ext'])
+    # Try fetching video from Tele-Social API
+    video_link, video_title = await fetch_video_from_tele_social(video_url)
+    if video_link:
+        logger.info(f"Video fetched from Tele-Social API: {video_link}")
+        # Download and send the video from Tele-Social
+        video_response = requests.get(video_link, stream=True)
+        video_file = video_response.raw
+        await update.message.reply_video(video=video_file, caption=video_title)
+        return
 
-    try:
-        if not os.path.isfile(file_path):  # Download only if file doesn't exist
-            YoutubeDownloader.download_video(video_url, best_format['format_id'], file_path)
+    # If Tele-Social API fails, try fetching from SMTV API
+    video_link, video_title, video_thumbnail = await fetch_video_from_smtv(video_url)
+    if video_link:
+        logger.info(f"Video fetched from SMTV API: {video_link}")
+        # Download and send the video from SMTV
+        video_response = requests.get(video_link, stream=True)
+        video_file = video_response.raw
+        await update.message.reply_video(video=video_file, caption=video_title, thumb=video_thumbnail)
+        return
 
-        with open(file_path, 'rb') as video_file:
-            await update.message.reply_video(video=video_file, caption="Here is your downloaded video!")
-    except Exception as e:
-        logger.error(f"Error during download: {e}")
-        await update.message.reply_text("An error occurred while processing the video.")
+    # If both APIs fail, inform the user
+    await update.message.reply_text("Sorry, I couldn't fetch the video. Please try again later.")
 
-def main():
-    token = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace with your actual bot token
+# Main function to run the bot
+def main() -> None:
+    # Your bot's token
+    token = '8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM'
+
+    # Set up the Application (replaces Updater)
     application = Application.builder().token(token).build()
 
+    # Add handlers for commands and messages
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_video_link))
 
+    # Start the Bot
     application.run_polling()
 
 if __name__ == '__main__':
-    YoutubeDownloader.initialize()
     main()
