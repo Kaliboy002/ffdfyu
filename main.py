@@ -1,13 +1,19 @@
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from mega import Mega
 import os
+import tempfile
 
 # Replace with your Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
 # API base URL for YouTube downloader
 API_BASE_URL = "https://api.smtv.uz/yt/?url="
+
+# MEGA credentials
+MEGA_EMAIL = "shokrullahmohammadi072@gmail.com"
+MEGA_PASSWORD = "SHM14002022SHM"
 
 # Start command handler
 async def start(update: Update, context):
@@ -22,7 +28,7 @@ async def fetch_youtube_media(update: Update, context):
 
     await update.message.reply_text("Processing your request. Please wait...")
 
-    # Make the API request
+    # Make the API request to get the video URL
     try:
         response = requests.get(API_BASE_URL, params={'url': message})
         data = response.json()
@@ -33,23 +39,29 @@ async def fetch_youtube_media(update: Update, context):
             video_title = data["title"]
 
             # Download the video
-            video_file = "downloaded_video.mp4"
+            video_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
             with requests.get(video_url, stream=True) as video_response:
                 video_response.raise_for_status()
-                with open(video_file, "wb") as f:
+                with open(video_file.name, "wb") as f:
                     for chunk in video_response.iter_content(chunk_size=8192):
                         f.write(chunk)
 
-            # Send the video to the user
-            with open(video_file, "rb") as video:
-                # Send video with a caption (no thumbnail URL)
+            # Login to MEGA
+            mega = Mega()
+            m = mega.login(MEGA_EMAIL, MEGA_PASSWORD)
+
+            # Upload the video to MEGA
+            file = m.upload(video_file.name)
+
+            # Send the video file to the user
+            with open(video_file.name, "rb") as video:
                 await update.message.reply_video(
                     video,
-                    caption=f"Here's your video!\n\nTitle: {video_title}"
+                    caption=f"Here's your video: {video_title}"
                 )
 
-            # Clean up the downloaded file
-            os.remove(video_file)
+            # Clean up the downloaded video file
+            os.remove(video_file.name)
         else:
             await update.message.reply_text("Sorry, no media found in the provided URL.")
     except Exception as e:
