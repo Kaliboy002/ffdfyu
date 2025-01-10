@@ -1,72 +1,68 @@
 import requests
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram import Update, InputFile
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Your main bot's token
-MAIN_BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace with your main bot's token
+# Telegram bot token
+BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
-# ChatGPT API URL
-CHATGPT_API_URL = "https://api.smtv.uz/ai/?text="
+# API Endpoint for Facebook video download
+FACEBOOK_API_URL = "https://super-api.wineclo.com/fb/?url="
 
-# Temporary storage for user-provided tokens
-user_tokens = {}
-
-# Function to handle the /start command
-async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text(
-        "Welcome! I can help you create your own ChatGPT bot. Send me the token of the bot you'd like to power with ChatGPT!"
+# Command to start the bot
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text(
+        "Welcome! Send me a Facebook video link, and I'll download the video for you."
     )
 
-# Function to handle user-provided tokens
-async def handle_token(update: Update, context: CallbackContext):
-    token = update.message.text.strip()
+# Handle messages with Facebook video links
+def handle_message(update: Update, context: CallbackContext) -> None:
+    user_message = update.message.text
+    chat_id = update.message.chat_id
 
-    # Validate the token using Telegram's getMe method
-    response = requests.get(f"https://api.telegram.org/bot{token}/getMe")
-    if response.status_code == 200:
-        user_tokens[update.effective_user.id] = token
-        await update.message.reply_text(
-            "Great! Your token is valid. I'm now setting up your ChatGPT bot. Please wait..."
-        )
-        create_chatgpt_bot(token)
-        await update.message.reply_text("Your ChatGPT bot is ready to use!")
+    # Check if the message is a valid URL
+    if user_message.startswith("http"):
+        update.message.reply_text("Processing your link... Please wait.")
+
+        # Fetch the video download link
+        response = requests.get(FACEBOOK_API_URL + user_message)
+        if response.status_code == 200:
+            data = response.json()
+
+            # Check if the API returned a valid video URL
+            if "result" in data and "url" in data["result"]:
+                video_url = data["result"]["url"]
+                title = data["result"].get("title", "Here is your video!")
+
+                # Send the video to the user
+                update.message.reply_video(video=video_url, caption=title)
+            else:
+                update.message.reply_text(
+                    "Failed to fetch the video. Please ensure the link is valid."
+                )
+        else:
+            update.message.reply_text("Error connecting to the video download API.")
     else:
-        await update.message.reply_text("Invalid token. Please try again.")
+        update.message.reply_text("Please send a valid Facebook video link.")
 
-# Function to create and deploy a ChatGPT bot
-def create_chatgpt_bot(user_token):
-    # Define the logic for the ChatGPT bot
-    async def chatgpt_start(update: Update, context: CallbackContext):
-        await update.message.reply_text("Hello! Send me a message, and I'll respond using ChatGPT.")
-
-    async def chatgpt_handle_message(update: Update, context: CallbackContext):
-        user_message = update.message.text
-        response = requests.get(CHATGPT_API_URL + user_message)
-        response_data = response.json()
-        answer = response_data.get('answer', "Sorry, I couldn't understand that.")
-        await update.message.reply_text(answer)
-
-    # Create a new Application for the user's bot
-    application = Application.builder().token(user_token).build()
-
-    # Add handlers for the user's bot
-    application.add_handler(CommandHandler("start", chatgpt_start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chatgpt_handle_message))
-
-    # Run the user's bot in a separate thread
-    application.run_polling()
-
-# Main function to set up the main bot
+# Main function to start the bot
 def main():
-    # Set up the Application for the main bot
-    application = Application.builder().token(MAIN_BOT_TOKEN).build()
+    # Create the Updater and pass it your bot's token
+    updater = Updater(BOT_TOKEN)
 
-    # Add handlers for the main bot
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_token))
+    # Get the dispatcher to register handlers
+    dp = updater.dispatcher
 
-    # Run the main bot
-    application.run_polling()
+    # Register the start command handler
+    dp.add_handler(CommandHandler("start", start))
 
-if __name__ == '__main__':
+    # Register a message handler for video links
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+
+    # Start the bot
+    updater.start_polling()
+
+    # Run the bot until you press Ctrl+C
+    updater.idle()
+
+if __name__ == "__main__":
     main()
