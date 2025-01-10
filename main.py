@@ -5,9 +5,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 # Replace with your Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
-# API URLs for the two APIs
-API_1_URL = "https://tele-social.vercel.app/down?url="
-API_2_URL = "https://super-api.wineclo.com/soundcloud/?url="
+# API URL for the tele-service API
+API_URL = "https://tele-social.vercel.app/down?url="
 
 # Start command handler
 async def start(update: Update, context):
@@ -22,9 +21,9 @@ async def fetch_soundcloud_media(update: Update, context):
 
     await update.message.reply_text("Processing your request. Please wait...")
 
-    # Try the first API
+    # Try the tele-service API
     try:
-        response = requests.get(API_1_URL + message)
+        response = requests.get(API_URL + message)
         data = response.json()
 
         if data['status']:
@@ -46,32 +45,10 @@ async def fetch_soundcloud_media(update: Update, context):
 
             await update.message.reply_audio(mp3_url, caption=f"Title: {title}")
         else:
-            raise Exception("API 1 failed, switching to API 2.")
+            await update.message.reply_text("Sorry, no valid media found in the provided URL.")
+
     except Exception as e:
-        # If the first API fails, try the second API
-        try:
-            response = requests.get(API_2_URL + message)
-            data = response.json()
-
-            mp3_url = data["result"]["url"]
-            title = data["result"]["title"]
-            # Handle thumbnail (if available)
-            thumbnail = data["result"].get("thumb", None)
-
-            # Send the media to the user
-            if thumbnail:
-                await update.message.reply_photo(
-                    thumbnail,
-                    caption=f"Here's your music: {title}",
-                    reply_markup=None
-                )
-            else:
-                await update.message.reply_text(f"Here's your music: {title}")
-
-            await update.message.reply_audio(mp3_url, caption=f"Title: {title}")
-
-        except Exception as e:
-            await update.message.reply_text(f"An error occurred: {str(e)}")
+        await update.message.reply_text(f"An error occurred: {str(e)}")
 
 # Main function
 def main():
