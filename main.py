@@ -1,6 +1,6 @@
 import logging
 import requests
-from telegram import Update, InputFile
+from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Logging setup
@@ -23,35 +23,29 @@ async def process_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     api_url = f"https://super-api.wineclo.com/fb/?url={video_url}"
     try:
         response = requests.get(api_url)
+        response.raise_for_status()  # Raise HTTP errors if they occur
         response_data = response.json()
 
         # Check if the API returned a valid result
         if "result" in response_data:
             video_data = response_data["result"]
             video_download_url = video_data["url"]
-            video_title = video_data["title"]
-            thumbnail_url = video_data["thumb"]
+            video_title = video_data.get("title", "No Title Provided")
 
-            # Download the video
-            video_content = requests.get(video_download_url)
-            if video_content.status_code == 200:
-                with open("video.mp4", "wb") as f:
-                    f.write(video_content.content)
-
-                # Send the video file
-                with open("video.mp4", "rb") as video_file:
-                    await update.message.reply_video(
-                        video=video_file,
-                        caption=f"🎥 *Title:* {video_title}",
-                        parse_mode="Markdown"
-                    )
-            else:
-                await update.message.reply_text("❌ Failed to download the video. Please try another link.")
+            # Send the video directly from the URL
+            await update.message.reply_video(
+                video=video_download_url,
+                caption=f"🎥 *Title:* {video_title}",
+                parse_mode="Markdown"
+            )
         else:
             await update.message.reply_text("❌ Failed to fetch video details. Please try another link.")
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching video: {e}")
-        await update.message.reply_text("❌ An error occurred while processing the video.")
+        await update.message.reply_text("❌ An error occurred while fetching the video.")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        await update.message.reply_text("❌ An unexpected error occurred while processing the video.")
 
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -59,7 +53,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Main function to run the bot
 def main():
-    bot_token = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
+    bot_token = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace with your bot token
     app = ApplicationBuilder().token(bot_token).build()
 
     app.add_handler(CommandHandler("start", start))
