@@ -16,17 +16,18 @@ TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 API_URL = "https://api.smtv.uz/yt/?url="
 
 def start(update: Update, context: CallbackContext) -> None:
+    """Send a greeting message when the bot is started."""
     update.message.reply_text("Send me a YouTube video link, and I'll send you the video!")
 
 def fetch_video_url(video_url: str) -> str:
     """Fetch video download link using the provided API."""
     response = requests.get(API_URL + video_url)
     data = response.json()
-    
+
     if data["error"]:
         return None
 
-    # Assuming we want to download the first available video stream
+    # Assuming we want to download the first available video stream (e.g., 360p)
     video_url = data["medias"][0]["url"]
     return video_url
 
@@ -54,7 +55,7 @@ def main():
     # Register handlers
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(None, send_video))  # Filters removed due to older version
+    dp.add_handler(MessageHandler(None, send_video))  # Accepts any message and processes it
 
     # Start the bot
     updater.start_polling()
