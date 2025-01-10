@@ -6,7 +6,7 @@ import requests
 from functools import lru_cache
 from telegram import Update, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-from youtube_dl import YoutubeDL
+import yt_dlp as YoutubeDL
 
 # Enable logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
