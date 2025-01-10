@@ -1,24 +1,13 @@
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-import pymongo
-import gridfs
-from io import BytesIO
+import io
 
 # Replace with your Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
 # API base URL for YouTube downloader
 API_BASE_URL = "https://api.smtv.uz/yt/?url="
-
-# MongoDB connection setup (Use your connection string here)
-MONGO_URI = "mongodb+srv://mrshokrullah:L7yjtsOjHzGBhaSR@cluster0.aqxyz.mongodb.net/shah?retryWrites=true&w=majority&appName=Cluster0"  # or your MongoDB Atlas URI
-DB_NAME = "video_db"
-
-# Connect to MongoDB
-client = pymongo.MongoClient(MONGO_URI)
-db = client[DB_NAME]
-fs = gridfs.GridFS(db)
 
 # Start command handler
 async def start(update: Update, context):
@@ -43,27 +32,28 @@ async def fetch_youtube_media(update: Update, context):
             video_url = data["medias"][0]["url"]
             video_title = data["title"]
 
-            # Download the video into a BytesIO stream
-            video_file = BytesIO()
-            with requests.get(video_url, stream=True) as video_response:
-                video_response.raise_for_status()
-                for chunk in video_response.iter_content(chunk_size=8192):
-                    video_file.write(chunk)
+            # Download the video (stream it in chunks)
+            video_stream = requests.get(video_url, stream=True)
+            video_stream.raise_for_status()
 
-            # Reset the file pointer to the beginning of the file
+            # Use io.BytesIO to handle the video as a file-like object in memory
+            video_file = io.BytesIO()
+
+            # Write the video to the in-memory file in chunks to save memory
+            for chunk in video_stream.iter_content(chunk_size=8192):
+                video_file.write(chunk)
+
+            # Reset the pointer to the start of the video file
             video_file.seek(0)
 
-            # Upload the video to MongoDB using GridFS
-            file_id = fs.put(video_file, filename=f"{video_title}.mp4")
-
-            # Send confirmation that video is uploaded
-            await update.message.reply_text(f"Video uploaded successfully to the cloud!\n\nTitle: {video_title}")
-
-            # Now, send the video to the user from MongoDB
-            grid_out = fs.get(file_id)
+            # Send the video to the user
             await update.message.reply_video(
-                grid_out, caption=f"Here's your video!\n\nTitle: {video_title}"
+                video_file,
+                caption=f"Here's your video!\n\nTitle: {video_title}"
             )
+
+            # Close the in-memory file
+            video_file.close()
 
         else:
             await update.message.reply_text("Sorry, no media found in the provided URL.")
