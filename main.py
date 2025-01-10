@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 # Your Telegram bot token
-TELEGRAM_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace with your bot's token
+TELEGRAM_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace whith your bot's token
 
 # URL of the ChatGPT API
 CHATGPT_API_URL = "https://api.smtv.uz/ai/?text="
