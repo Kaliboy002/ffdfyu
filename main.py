@@ -30,15 +30,20 @@ async def fetch_soundcloud_media(update: Update, context):
         if data['status']:
             mp3_url = data["url"]
             title = data["filename"]
-            thumbnail = data["url"].replace("mp3", "jpg")  # Assume the URL contains an image
+            # Handle thumbnail (use the filename as a fallback if no thumbnail is available)
+            thumbnail = data.get("thumbnail", None)
             credit = data["Credit"]
 
             # Send the media to the user
-            await update.message.reply_photo(
-                thumbnail,
-                caption=f"Here's your music: {title}\n\nCredit: {credit}",
-                reply_markup=None
-            )
+            if thumbnail:
+                await update.message.reply_photo(
+                    thumbnail,
+                    caption=f"Here's your music: {title}\n\nCredit: {credit}",
+                    reply_markup=None
+                )
+            else:
+                await update.message.reply_text(f"Here's your music: {title}\n\nCredit: {credit}")
+
             await update.message.reply_audio(mp3_url, caption=f"Title: {title}")
         else:
             raise Exception("API 1 failed, switching to API 2.")
@@ -50,14 +55,19 @@ async def fetch_soundcloud_media(update: Update, context):
 
             mp3_url = data["result"]["url"]
             title = data["result"]["title"]
-            thumbnail = data["result"]["thumb"]
+            # Handle thumbnail (if available)
+            thumbnail = data["result"].get("thumb", None)
 
             # Send the media to the user
-            await update.message.reply_photo(
-                thumbnail,
-                caption=f"Here's your music: {title}",
-                reply_markup=None
-            )
+            if thumbnail:
+                await update.message.reply_photo(
+                    thumbnail,
+                    caption=f"Here's your music: {title}",
+                    reply_markup=None
+                )
+            else:
+                await update.message.reply_text(f"Here's your music: {title}")
+
             await update.message.reply_audio(mp3_url, caption=f"Title: {title}")
 
         except Exception as e:
