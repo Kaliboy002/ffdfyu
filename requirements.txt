@@ -1,5 +1,4 @@
-arduino
-python-telegram-bot
-yt-dlp
 requests
-megapy
+python-telegram-bot
+pymongo
+gridfs
