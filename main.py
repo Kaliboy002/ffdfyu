@@ -1,7 +1,7 @@
 import logging
 import requests
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext
 from io import BytesIO
 
 # Enable logging for debugging
@@ -49,12 +49,12 @@ def send_video(update: Update, context: CallbackContext) -> None:
 
 def main():
     """Start the bot."""
-    updater = Updater(TOKEN)
+    updater = Updater(TOKEN, use_context=True)
 
     # Register handlers
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, send_video))
+    dp.add_handler(MessageHandler(None, send_video))  # Filters removed due to older version
 
     # Start the bot
     updater.start_polling()
