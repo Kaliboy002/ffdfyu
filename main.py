@@ -1,71 +1,52 @@
-import logging
 import requests
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Logging setup
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# Your Telegram bot token
+TELEGRAM_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace with your bot's token
 
-# Function to process video links
-async def process_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    video_url = update.message.text.strip()
+# URL of the ChatGPT API
+CHATGPT_API_URL = "https://api.smtv.uz/ai/?text="
 
-    # Validate the input URL
-    if "facebook.com" not in video_url:
-        await update.message.reply_text("Please send a valid Facebook video link.")
-        return
+# Function to handle user messages
+def handle_message(update: Update, context: CallbackContext):
+    user_message = update.message.text  # Get the user's message
 
-    # API call to fetch video details
-    api_url = f"https://super-api.wineclo.com/fb/?url={video_url}"
-    try:
-        response = requests.get(api_url, timeout=10)
-        response.raise_for_status()  # Raise HTTP errors if they occur
+    # Send the message to the ChatGPT API
+    response = requests.get(CHATGPT_API_URL + user_message)
 
-        # Parse the JSON response
-        response_data = response.json()
+    # Parse the JSON response
+    response_data = response.json()
 
-        # Check if the API returned a valid result
-        if "result" in response_data and "url" in response_data["result"]:
-            video_data = response_data["result"]
-            video_download_url = video_data["url"]
-            video_title = video_data.get("title", "No Title Provided")
+    # Extract the answer from the API response
+    answer = response_data.get('answer', "Sorry, I couldn't understand that.")
 
-            # Send the video directly from the URL
-            await update.message.reply_video(
-                video=video_download_url,
-                caption=f"🎥 *Title:* {video_title}",
-                parse_mode="Markdown"
-            )
-        else:
-            await update.message.reply_text("❌ Failed to fetch video details. Please try another link.")
-    except requests.exceptions.Timeout:
-        logger.error("The request timed out.")
-        await update.message.reply_text("❌ The server took too long to respond. Please try again later.")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching video details: {e}")
-        await update.message.reply_text("❌ An error occurred while fetching the video.")
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        await update.message.reply_text("❌ An unexpected error occurred while processing the video.")
+    # Send the response back to the user
+    update.message.reply_text(answer)
 
-# Start command
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 Send me a Facebook video link, and I'll fetch it for you!")
+# Function to start the bot
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("Hello! Send me a message, and I'll respond using ChatGPT.")
 
-# Main function to run the bot
+# Main function to set up the bot
 def main():
-    bot_token = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace with your bot token
-    app = ApplicationBuilder().token(bot_token).build()
+    # Set up the Updater with the bot's token
+    updater = Updater(TELEGRAM_TOKEN)
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_video))
+    # Get the dispatcher to register handlers
+    dispatcher = updater.dispatcher
 
-    logger.info("Bot is running...")
-    app.run_polling()
+    # Add command handler for the start command
+    dispatcher.add_handler(CommandHandler("start", start))
 
-if __name__ == "__main__":
+    # Add message handler for text messages
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+
+    # Start the bot
+    updater.start_polling()
+
+    # Run the bot until you send a signal to stop it
+    updater.idle()
+
+if __name__ == '__main__':
     main()
