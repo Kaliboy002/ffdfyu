@@ -7,8 +7,8 @@ import os
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
 # API base URLs
-PRIMARY_API_BASE_URL = "https://api.smtv.uz/yt/"
-FALLBACK_API_BASE_URL = "https://tele-tsocial.vercel.app/down?url="
+PRIMARY_API_BASE_URL = "https://tele-social.vercel.app/down?url="  # Primary API changed to Tele service
+FALLBACK_API_BASE_URL = "https://api.smtv.uz/yt/"  # Fallback to smtv.uz API
 
 # Start command handler
 async def start(update: Update, context):
@@ -23,28 +23,28 @@ async def fetch_youtube_media(update: Update, context):
 
     await update.message.reply_text("Processing your request. Please wait...")
 
-    # Try the primary API
+    # Try the primary API (Tele service)
     try:
-        response = requests.get(PRIMARY_API_BASE_URL, params={'url': message})
+        response = requests.get(PRIMARY_API_BASE_URL + message)
         data = response.json()
 
-        if "medias" in data and len(data["medias"]) > 0:
-            video_url = data["medias"][0]["url"]
+        if data.get("status") and "video" in data:
+            video_url = data["video"]
             video_title = data["title"]
         else:
-            raise Exception("No media found in the response.")
+            raise Exception("No media found in the primary API response.")
 
     except Exception as primary_error:
-        # If the primary API fails, use the fallback API
+        # If the primary API fails, use the fallback API (smtv.uz)
         try:
-            response = requests.get(FALLBACK_API_BASE_URL + message)
+            response = requests.get(FALLBACK_API_BASE_URL, params={'url': message})
             data = response.json()
 
-            if data.get("status") and "video" in data:
-                video_url = data["video"]
+            if "medias" in data and len(data["medias"]) > 0:
+                video_url = data["medias"][0]["url"]
                 video_title = data["title"]
             else:
-                raise Exception("No media found in the fallback response.")
+                raise Exception("No media found in the fallback API response.")
 
         except Exception as fallback_error:
             await update.message.reply_text(
