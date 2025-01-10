@@ -56,6 +56,7 @@ async def fetch_youtube_media(update: Update, context):
 
     # Download and send the video
     try:
+        # Check if the video URL is a direct link or a streaming link
         video_file = "downloaded_video.mp4"
         with requests.get(video_url, stream=True) as video_response:
             video_response.raise_for_status()
