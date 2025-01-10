@@ -27,13 +27,15 @@ async def fetch_youtube_media(update: Update, context):
         response = requests.get(API_BASE_URL, params={'url': message})
         data = response.json()
 
-        # Check if the video exists and we have a download link
+        # Check if the video exists and we have a media link
         if "error" not in data and "medias" in data and len(data["medias"]) > 0:
             video_url = data["medias"][0]["url"]
             video_title = data["title"]
+            quality = data["medias"][0]["quality"]
+            video_extension = data["medias"][0]["extension"]
 
             # Download the video
-            video_file = "downloaded_video.mp4"
+            video_file = f"downloaded_video.{video_extension}"
             with requests.get(video_url, stream=True) as video_response:
                 video_response.raise_for_status()
                 with open(video_file, "wb") as f:
@@ -42,10 +44,10 @@ async def fetch_youtube_media(update: Update, context):
 
             # Send the video to the user
             with open(video_file, "rb") as video:
-                # Send video with a caption (no thumbnail URL)
+                # Send video with a caption including title and quality
                 await update.message.reply_video(
                     video,
-                    caption=f"Here's your video!\n\nTitle: {video_title}"
+                    caption=f"Here's your video!\n\nTitle: {video_title}\nQuality: {quality}"
                 )
 
             # Clean up the downloaded file
