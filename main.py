@@ -7,7 +7,7 @@ import os
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
 # API base URLs for YouTube downloader
-API_BASE_URL_1 = "https://api.smtv.uz/yt/?url="
+API_BASE_URL_1 = "https://api.smtv.uz/yst/?url="
 API_BASE_URL_2 = "https://tele-social.vercel.app/down?url="
 
 # Start command handler
