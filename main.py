@@ -18,8 +18,9 @@ class YoutubeDownloader:
 
     @staticmethod
     def initialize():
+        # Check if the directory exists; if not, create it.
         if not os.path.isdir(YoutubeDownloader.DOWNLOAD_DIR):
-            os.mkdir(YoutubeDownloader.DOWNLOAD_DIR)
+            os.makedirs(YoutubeDownloader.DOWNLOAD_DIR)  # This ensures that parent directories are created if needed.
 
     @staticmethod
     def is_youtube_link(url):
@@ -35,6 +36,7 @@ class YoutubeDownloader:
 
     @lru_cache(maxsize=128)
     def get_file_path(url, format_id, extension):
+        # Generate a unique file name based on the URL and format ID
         hashed_url = hashlib.blake2b((url + format_id + extension).encode()).hexdigest()
         filename = f"{hashed_url}.{extension}"
         return os.path.join(YoutubeDownloader.DOWNLOAD_DIR, filename)
@@ -106,7 +108,7 @@ async def handle_video_link(update: Update, context: CallbackContext):
         await update.message.reply_text("An error occurred while processing the video.")
 
 def main():
-    token = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
+    token = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace with your actual bot token
     application = Application.builder().token(token).build()
 
     application.add_handler(CommandHandler("start", start))
