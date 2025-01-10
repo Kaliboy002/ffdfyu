@@ -1,6 +1,6 @@
 import logging
 import requests
-from telegram import Update, InputFile, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Logging setup
@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 # Function to process video links
 async def process_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.message.from_user
     video_url = update.message.text.strip()
 
     # Validate the input URL
@@ -33,16 +32,21 @@ async def process_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             video_title = video_data["title"]
             thumbnail_url = video_data["thumb"]
 
-            # Send video details with download link
-            buttons = [
-                [InlineKeyboardButton("Download Video", url=video_download_url)]
-            ]
-            await update.message.reply_photo(
-                photo=thumbnail_url,
-                caption=f"🎥 *Title:* {video_title}\n\nClick below to download the video:",
-                parse_mode="Markdown",
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
+            # Download the video
+            video_content = requests.get(video_download_url)
+            if video_content.status_code == 200:
+                with open("video.mp4", "wb") as f:
+                    f.write(video_content.content)
+
+                # Send the video file
+                with open("video.mp4", "rb") as video_file:
+                    await update.message.reply_video(
+                        video=video_file,
+                        caption=f"🎥 *Title:* {video_title}",
+                        parse_mode="Markdown"
+                    )
+            else:
+                await update.message.reply_text("❌ Failed to download the video. Please try another link.")
         else:
             await update.message.reply_text("❌ Failed to fetch video details. Please try another link.")
     except Exception as e:
@@ -55,7 +59,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Main function to run the bot
 def main():
-    bot_token = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
+    bot_token = "YOUR_BOT_TOKEN"
     app = ApplicationBuilder().token(bot_token).build()
 
     app.add_handler(CommandHandler("start", start))
