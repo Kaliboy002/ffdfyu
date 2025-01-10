@@ -1,76 +1,64 @@
+import logging
 import requests
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
-import io
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from io import BytesIO
 
-# Replace with your Telegram bot token
-BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
+# Enable logging for debugging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# API base URL for YouTube downloader
-API_BASE_URL = "https://api.smtv.uz/yt/?url="
+# Your Telegram bot token here
+TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
-# Start command handler
-async def start(update: Update, context):
-    await update.message.reply_text("Welcome! Send me a YouTube URL, and I'll fetch the video for you.")
+# API URL to fetch video details from
+API_URL = "https://api.smtv.uz/yt/?url="
 
-# Function to process YouTube URL
-async def fetch_youtube_media(update: Update, context):
-    message = update.message.text
-    if "youtube.com" not in message and "youtu.be" not in message:
-        await update.message.reply_text("Please send a valid YouTube URL.")
-        return
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text("Send me a YouTube video link, and I'll send you the video!")
 
-    await update.message.reply_text("Processing your request. Please wait...")
+def fetch_video_url(video_url: str) -> str:
+    """Fetch video download link using the provided API."""
+    response = requests.get(API_URL + video_url)
+    data = response.json()
+    
+    if data["error"]:
+        return None
 
-    # Make the API request
-    try:
-        response = requests.get(API_BASE_URL, params={'url': message})
-        data = response.json()
+    # Assuming we want to download the first available video stream
+    video_url = data["medias"][0]["url"]
+    return video_url
 
-        # Check if the video exists and we have a download link
-        if "medias" in data and len(data["medias"]) > 0:
-            video_url = data["medias"][0]["url"]
-            video_title = data["title"]
+def send_video(update: Update, context: CallbackContext) -> None:
+    """Receive a YouTube URL and send the video to the user."""
+    video_url = update.message.text.strip()
 
-            # Download the video (stream it in chunks)
-            video_stream = requests.get(video_url, stream=True)
-            video_stream.raise_for_status()
+    # Fetch the download URL from the API
+    download_url = fetch_video_url(video_url)
+    
+    if download_url:
+        # Download the video content
+        video_response = requests.get(download_url)
+        video_data = BytesIO(video_response.content)
 
-            # Use io.BytesIO to handle the video as a file-like object in memory
-            video_file = io.BytesIO()
+        # Send the video to the user
+        update.message.reply_video(video_data)
+    else:
+        update.message.reply_text("Sorry, I couldn't fetch the video. Please check the link.")
 
-            # Write the video to the in-memory file in chunks to save memory
-            for chunk in video_stream.iter_content(chunk_size=8192):
-                video_file.write(chunk)
-
-            # Reset the pointer to the start of the video file
-            video_file.seek(0)
-
-            # Send the video to the user
-            await update.message.reply_video(
-                video_file,
-                caption=f"Here's your video!\n\nTitle: {video_title}"
-            )
-
-            # Close the in-memory file
-            video_file.close()
-
-        else:
-            await update.message.reply_text("Sorry, no media found in the provided URL.")
-    except Exception as e:
-        await update.message.reply_text(f"An error occurred: {str(e)}")
-
-# Main function
 def main():
-    # Create an Application instance
-    app = Application.builder().token(BOT_TOKEN).build()
+    """Start the bot."""
+    updater = Updater(TOKEN)
 
-    # Add command and message handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fetch_youtube_media))
+    # Register handlers
+    dp = updater.dispatcher
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, send_video))
 
     # Start the bot
-    app.run_polling()
+    updater.start_polling()
+    updater.idle()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
