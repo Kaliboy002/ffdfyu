@@ -43,10 +43,10 @@ async def fetch_tiktok_media(update: Update, context):
 
             # Send the video to the user
             with open(video_file, "rb") as video:
+                # Send video with a caption (no thumb)
                 await update.message.reply_video(
                     video,
-                    caption=f"Here's your video!\n\nTitle: {video_title}",
-                    thumb=video_thumb
+                    caption=f"Here's your video!\n\nTitle: {video_title}\n\n{video_thumb}"
                 )
 
             # Clean up the downloaded file
