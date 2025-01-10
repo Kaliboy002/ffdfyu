@@ -31,17 +31,18 @@ async def fetch_soundcloud_media(update: Update, context):
             title = data["result"]["title"]
             thumbnail = data["result"].get("thumb", None)
 
-            # Send the media to the user
+            # Send the thumbnail image with the title
             if thumbnail:
                 await update.message.reply_photo(
                     thumbnail,
-                    caption=f"Here's your music: {title}",
+                    caption=f"Title: {title}",
                     reply_markup=None
                 )
             else:
-                await update.message.reply_text(f"Here's your music: {title}")
+                await update.message.reply_text(f"Title: {title}")
 
-            await update.message.reply_audio(mp3_url, caption=f"Title: {title}")
+            # Send the MP3 audio
+            await update.message.reply_audio(mp3_url, caption=f"Enjoy the music: {title}")
         else:
             await update.message.reply_text("Sorry, no valid media found in the provided URL.")
 
