@@ -27,7 +27,7 @@ async def fetch_tiktok_media(update: Update, context):
         response = requests.get(API_BASE_URL, params={'url': message})
         data = response.json()
 
-        # Check if the video exists
+        # Check if the video exists and we have a download link
         if "result" in data and "url" in data["result"]:
             video_url = data["result"]["url"]
             video_title = data["result"]["title"]
