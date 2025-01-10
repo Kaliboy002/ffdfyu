@@ -6,9 +6,9 @@ import os
 # Replace with your Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
-# API URLs
-API_BASE_URL_1 = "https://api.smtv.uz/yt/?url="
-API_BASE_URL_2 = "https://tele-social.vercel.app/down?url="
+# API base URLs
+PRIMARY_API_BASE_URL = "https://api.smtv.uz/yt/"
+FALLBACK_API_BASE_URL = "https://tele-social.vercel.app/down?url="
 
 # Start command handler
 async def start(update: Update, context):
@@ -23,33 +23,38 @@ async def fetch_youtube_media(update: Update, context):
 
     await update.message.reply_text("Processing your request. Please wait...")
 
-    # Try the first API
+    # Try the primary API
     try:
-        response = requests.get(API_BASE_URL_1 + message)
+        response = requests.get(PRIMARY_API_BASE_URL, params={'url': message})
         data = response.json()
 
-        # Check if the video exists
         if "medias" in data and len(data["medias"]) > 0:
             video_url = data["medias"][0]["url"]
             video_title = data["title"]
         else:
-            raise ValueError("No media found with the first API")
-    except Exception:
-        # Fallback to the second API
+            raise Exception("No media found in the response.")
+
+    except Exception as primary_error:
+        # If the primary API fails, use the fallback API
         try:
-            response = requests.get(API_BASE_URL_2 + message)
+            response = requests.get(FALLBACK_API_BASE_URL + message)
             data = response.json()
 
             if data.get("status") and "video" in data:
                 video_url = data["video"]
                 video_title = data["title"]
             else:
-                raise ValueError("No media found with the second API")
-        except Exception as e:
-            await update.message.reply_text(f"Failed to fetch video from both APIs. Error: {str(e)}")
+                raise Exception("No media found in the fallback response.")
+
+        except Exception as fallback_error:
+            await update.message.reply_text(
+                f"An error occurred while processing your request.\n"
+                f"Primary API Error: {primary_error}\n"
+                f"Fallback API Error: {fallback_error}"
+            )
             return
 
-    # Download the video
+    # Download and send the video
     try:
         video_file = "downloaded_video.mp4"
         with requests.get(video_url, stream=True) as video_response:
@@ -58,17 +63,16 @@ async def fetch_youtube_media(update: Update, context):
                 for chunk in video_response.iter_content(chunk_size=8192):
                     f.write(chunk)
 
-        # Send the video to the user
         with open(video_file, "rb") as video:
             await update.message.reply_video(
                 video,
                 caption=f"Here's your video!\n\nTitle: {video_title}"
             )
 
-        # Clean up the downloaded file
         os.remove(video_file)
+
     except Exception as e:
-        await update.message.reply_text(f"An error occurred while downloading or sending the video: {str(e)}")
+        await update.message.reply_text(f"Failed to download or send the video: {str(e)}")
 
 # Main function
 def main():
