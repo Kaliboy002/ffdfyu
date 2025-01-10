@@ -1,113 +1,72 @@
-import os
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-
-# Your bot's token
-MASTER_BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace with your bot's token
-
-# Temporary storage for bot tokens
-user_tokens = {}
-
-# Start command handler
-async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text(
-        "Welcome to the Bot Maker!\n"
-        "Send me a valid Telegram bot token, and I'll generate a ChatGPT bot script for you."
-    )
-
-# Function to handle received tokens
-async def handle_token(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    user_message = update.message.text.strip()
-
-    # Validate the provided token format
-    if ":" not in user_message or not user_message.split(":")[0].isdigit():
-        await update.message.reply_text("Invalid token format. Please send a valid Telegram bot token.")
-        return
-
-    # Save the user's token temporarily
-    user_tokens[user_id] = user_message
-
-    # Generate the bot script
-    bot_script = generate_chatgpt_bot_script(user_message)
-
-    # Save the bot script to a file
-    file_path = f"ChatGPT_Bot_{user_id}.py"
-    with open(file_path, "w") as bot_file:
-        bot_file.write(bot_script)
-
-    # Send the bot script back to the user
-    await update.message.reply_text("Your ChatGPT bot script has been created! Download it below:")
-    await context.bot.send_document(chat_id=update.message.chat_id, document=open(file_path, "rb"))
-
-    # Clean up the generated file
-    os.remove(file_path)
-
-# Function to generate a ChatGPT bot script
-def generate_chatgpt_bot_script(token):
-    script = f"""
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
-# Your bot's token
-BOT_TOKEN = "{token}"  # Replace with your token
+# Your main bot's token
+MAIN_BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"  # Replace with your main bot's token
 
-# URL of the ChatGPT API
+# ChatGPT API URL
 CHATGPT_API_URL = "https://api.smtv.uz/ai/?text="
 
-# Function to handle user messages
-async def handle_message(update: Update, context: CallbackContext):
-    user_message = update.message.text  # Get the user's message
+# Temporary storage for user-provided tokens
+user_tokens = {}
 
-    # Send the message to the ChatGPT API
-    response = requests.get(CHATGPT_API_URL + user_message)
-
-    # Parse the JSON response
-    response_data = response.json()
-
-    # Extract the answer from the API response
-    answer = response_data.get('answer', "Sorry, I couldn't understand that.")
-
-    # Send the response back to the user
-    await update.message.reply_text(answer)
-
-# Function to start the bot
+# Function to handle the /start command
 async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text("Hello! Send me a message, and I'll respond using ChatGPT.")
+    await update.message.reply_text(
+        "Welcome! I can help you create your own ChatGPT bot. Send me the token of the bot you'd like to power with ChatGPT!"
+    )
 
-# Main function to set up the bot
+# Function to handle user-provided tokens
+async def handle_token(update: Update, context: CallbackContext):
+    token = update.message.text.strip()
+
+    # Validate the token using Telegram's getMe method
+    response = requests.get(f"https://api.telegram.org/bot{token}/getMe")
+    if response.status_code == 200:
+        user_tokens[update.effective_user.id] = token
+        await update.message.reply_text(
+            "Great! Your token is valid. I'm now setting up your ChatGPT bot. Please wait..."
+        )
+        create_chatgpt_bot(token)
+        await update.message.reply_text("Your ChatGPT bot is ready to use!")
+    else:
+        await update.message.reply_text("Invalid token. Please try again.")
+
+# Function to create and deploy a ChatGPT bot
+def create_chatgpt_bot(user_token):
+    # Define the logic for the ChatGPT bot
+    async def chatgpt_start(update: Update, context: CallbackContext):
+        await update.message.reply_text("Hello! Send me a message, and I'll respond using ChatGPT.")
+
+    async def chatgpt_handle_message(update: Update, context: CallbackContext):
+        user_message = update.message.text
+        response = requests.get(CHATGPT_API_URL + user_message)
+        response_data = response.json()
+        answer = response_data.get('answer', "Sorry, I couldn't understand that.")
+        await update.message.reply_text(answer)
+
+    # Create a new Application for the user's bot
+    application = Application.builder().token(user_token).build()
+
+    # Add handlers for the user's bot
+    application.add_handler(CommandHandler("start", chatgpt_start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chatgpt_handle_message))
+
+    # Run the user's bot in a separate thread
+    application.run_polling()
+
+# Main function to set up the main bot
 def main():
-    # Set up the Application with the bot's token
-    application = Application.builder().token(BOT_TOKEN).build()
+    # Set up the Application for the main bot
+    application = Application.builder().token(MAIN_BOT_TOKEN).build()
 
-    # Add command handler for the start command
+    # Add handlers for the main bot
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_token))
 
-    # Add message handler for text messages
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    # Start the bot
+    # Run the main bot
     application.run_polling()
 
 if __name__ == '__main__':
-    main()
-"""
-    return script
-
-# Main function to set up the bot
-def main():
-    # Set up the Application with the bot's token
-    application = Application.builder().token(MASTER_BOT_TOKEN).build()
-
-    # Add command handler for the start command
-    application.add_handler(CommandHandler("start", start))
-
-    # Add message handler for text messages
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_token))
-
-    # Start the bot
-    application.run_polling()
-
-if __name__ == "__main__":
     main()
