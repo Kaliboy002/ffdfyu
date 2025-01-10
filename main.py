@@ -5,8 +5,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 # Replace with your Telegram bot token
 BOT_TOKEN = "8179647576:AAEIsa7Z72eThWi-VZVW8Y7buH9ptWFh4QM"
 
-# API URL for the tele-service API
-API_URL = "https://tele-social.vercel.app/down?url="
+# API URL for the super-api API
+SUPER_API_URL = "https://super-api.wineclo.com/soundcloud/?url="
 
 # Start command handler
 async def start(update: Update, context):
@@ -21,27 +21,25 @@ async def fetch_soundcloud_media(update: Update, context):
 
     await update.message.reply_text("Processing your request. Please wait...")
 
-    # Try the tele-service API
+    # Try the super-api API
     try:
-        response = requests.get(API_URL + message)
+        response = requests.get(SUPER_API_URL + message)
         data = response.json()
 
-        if data['status']:
-            mp3_url = data["url"]
-            title = data["filename"]
-            # Handle thumbnail (use the filename as a fallback if no thumbnail is available)
-            thumbnail = data.get("thumbnail", None)
-            credit = data["Credit"]
+        if "result" in data:
+            mp3_url = data["result"]["url"]
+            title = data["result"]["title"]
+            thumbnail = data["result"].get("thumb", None)
 
             # Send the media to the user
             if thumbnail:
                 await update.message.reply_photo(
                     thumbnail,
-                    caption=f"Here's your music: {title}\n\nCredit: {credit}",
+                    caption=f"Here's your music: {title}",
                     reply_markup=None
                 )
             else:
-                await update.message.reply_text(f"Here's your music: {title}\n\nCredit: {credit}")
+                await update.message.reply_text(f"Here's your music: {title}")
 
             await update.message.reply_audio(mp3_url, caption=f"Title: {title}")
         else:
