@@ -22,12 +22,14 @@ async def process_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # API call to fetch video details
     api_url = f"https://super-api.wineclo.com/fb/?url={video_url}"
     try:
-        response = requests.get(api_url)
+        response = requests.get(api_url, timeout=10)
         response.raise_for_status()  # Raise HTTP errors if they occur
+
+        # Parse the JSON response
         response_data = response.json()
 
         # Check if the API returned a valid result
-        if "result" in response_data:
+        if "result" in response_data and "url" in response_data["result"]:
             video_data = response_data["result"]
             video_download_url = video_data["url"]
             video_title = video_data.get("title", "No Title Provided")
@@ -40,8 +42,11 @@ async def process_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             await update.message.reply_text("❌ Failed to fetch video details. Please try another link.")
+    except requests.exceptions.Timeout:
+        logger.error("The request timed out.")
+        await update.message.reply_text("❌ The server took too long to respond. Please try again later.")
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching video: {e}")
+        logger.error(f"Error fetching video details: {e}")
         await update.message.reply_text("❌ An error occurred while fetching the video.")
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
