@@ -1,5 +1,2 @@
 python-telegram-bot
-requests
-pyrogram
-pymongo
-tgcrypto
+pywhatkit
