@@ -1,11 +1,5 @@
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    CallbackContext,
-    filters,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackContext, filters
 import requests
 
 # Telegram Bot Token
@@ -33,25 +27,35 @@ async def handle_photo(update: Update, context: CallbackContext) -> None:
     file = await context.bot.get_file(file_id)
     photo_url = file.file_path
 
+    # Debug: Log the Telegram file path
+    print(f"Telegram File URL: {photo_url}")
+
     # Send photo to the first API
-    first_api_response = requests.get(FIRST_API_URL + photo_url).json()
+    try:
+        first_api_response = requests.get(FIRST_API_URL + photo_url).json()
+        print(f"First API Response: {first_api_response}")
 
-    if first_api_response.get("status") == "ACCEPTED":
-        transaction_id = first_api_response.get("transaction_id")
+        if first_api_response.get("status") == "ACCEPTED":
+            transaction_id = first_api_response.get("transaction_id")
 
-        # Use transaction ID in the second API
-        second_api_response = requests.get(SECOND_API_URL + transaction_id).json()
-        final_image_url = second_api_response.get("tmp_url")
+            # Use transaction ID in the second API
+            second_api_response = requests.get(SECOND_API_URL + transaction_id).json()
+            print(f"Second API Response: {second_api_response}")
 
-        if final_image_url:
-            # Send the processed image back to the user
-            await context.bot.send_photo(chat_id=chat_id, photo=final_image_url)
+            final_image_url = second_api_response.get("tmp_url")
+
+            if final_image_url:
+                # Send the processed image back to the user
+                await context.bot.send_photo(chat_id=chat_id, photo=final_image_url)
+            else:
+                await update.message.reply_text(
+                    "Error: Unable to fetch the processed image."
+                )
         else:
-            await update.message.reply_text(
-                "Error: Unable to fetch the processed image."
-            )
-    else:
-        await update.message.reply_text("Error: Unable to process the photo.")
+            await update.message.reply_text("Error: Unable to process the photo.")
+    except Exception as e:
+        print(f"Error: {e}")
+        await update.message.reply_text("An unexpected error occurred.")
 
 
 def main() -> None:
