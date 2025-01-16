@@ -1,5 +1,11 @@
-from telegram import Update, InputFile
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackContext,
+    filters,
+)
 import requests
 
 # Telegram Bot Token
@@ -10,12 +16,12 @@ FIRST_API_URL = "https://for-free.serv00.net/get_transaction_id.php?image="
 SECOND_API_URL = "https://for-free.serv00.net/final_result_by_transaction_id.php?id="
 
 
-def start(update: Update, context: CallbackContext) -> None:
+async def start(update: Update, context: CallbackContext) -> None:
     """Handles the /start command."""
-    update.message.reply_text("Hello! Please send me a photo to process.")
+    await update.message.reply_text("Hello! Please send me a photo to process.")
 
 
-def handle_photo(update: Update, context: CallbackContext) -> None:
+async def handle_photo(update: Update, context: CallbackContext) -> None:
     """Handles photo uploads."""
     chat_id = update.message.chat_id
 
@@ -24,7 +30,7 @@ def handle_photo(update: Update, context: CallbackContext) -> None:
     file_id = photo_file.file_id
 
     # Get the file path from Telegram
-    file = context.bot.get_file(file_id)
+    file = await context.bot.get_file(file_id)
     photo_url = file.file_path
 
     # Send photo to the first API
@@ -39,25 +45,25 @@ def handle_photo(update: Update, context: CallbackContext) -> None:
 
         if final_image_url:
             # Send the processed image back to the user
-            context.bot.send_photo(chat_id=chat_id, photo=final_image_url)
+            await context.bot.send_photo(chat_id=chat_id, photo=final_image_url)
         else:
-            update.message.reply_text("Error: Unable to fetch the processed image.")
+            await update.message.reply_text(
+                "Error: Unable to fetch the processed image."
+            )
     else:
-        update.message.reply_text("Error: Unable to process the photo.")
+        await update.message.reply_text("Error: Unable to process the photo.")
 
 
 def main() -> None:
     """Main function to run the bot."""
-    updater = Updater(BOT_TOKEN)
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     # Add handlers
-    dispatcher = updater.dispatcher
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.photo, handle_photo))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
-    # Start the bot
-    updater.start_polling()
-    updater.idle()
+    # Run the bot
+    app.run_polling()
 
 
 if __name__ == "__main__":
