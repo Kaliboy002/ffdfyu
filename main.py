@@ -3,7 +3,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 import requests
 
 # Telegram Bot Token
-BOT_TOKEN = "7628087790:AAEk1UPEaEWl7sshWhhDNeZI4BcwH0XyS_4"  # Replace with your bot token
+BOT_TOKEN = "7628087790:AAEzbDoI4po7MHKeNw1jg-quRxzogHCiFAo"  # Replace with your bot token
 
 # API URLs
 FIRST_API_URL = "https://for-free.serv00.net/get_transaction_id.php?image="
