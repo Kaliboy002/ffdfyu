@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+
+Name: aiovd.js
+SHA1-Digest: 5+YkydKLInbkTqs60Kh02UfnMFI=
+
