@@ -17,14 +17,22 @@ async def handle_photo(update: Update, context):
         # Step 1: Send photo to the first API
         first_api_url = f"https://for-free.serv00.net/get_transaction_id.php?image={file_path}"
         first_response = requests.get(first_api_url)
+        
+        # Log first API response for debugging
+        print("First API Response:", first_response.text)
+
         first_data = first_response.json()
 
-        if first_data["status"] == "ACCEPTED":
+        if first_data.get("status") == "ACCEPTED":
             transaction_id = first_data["transaction_id"]
 
             # Step 2: Use transaction ID in the second API
             second_api_url = f"https://for-free.serv00.net/final_result_by_transaction_id.php?id={transaction_id}"
             second_response = requests.get(second_api_url)
+            
+            # Log second API response for debugging
+            print("Second API Response:", second_response.text)
+
             second_data = second_response.json()
 
             if "tmp_url" in second_data:
@@ -33,7 +41,7 @@ async def handle_photo(update: Update, context):
             else:
                 await update.message.reply_text("Failed to retrieve the processed image.")
         else:
-            await update.message.reply_text("Failed to process the image.")
+            await update.message.reply_text("Failed to process the image in the first API.")
     except Exception as e:
         await update.message.reply_text(f"An error occurred: {str(e)}")
 
