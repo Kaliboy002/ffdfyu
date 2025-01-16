@@ -3,7 +3,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 import requests
 
 # Telegram Bot Token
-BOT_TOKEN = "7628087790:AAEk1UPEaEWl7sshWhhDNeZI4BcwH0XyS_4"  # Replace with your actual token
+BOT_TOKEN = "7628087790:AAEk1UPEaEWl7sshWhhDNeZI4BcwH0XyS_4"  # Replace with your bot token
 
 # API URLs
 FIRST_API_URL = "https://for-free.serv00.net/get_transaction_id.php?image="
@@ -27,31 +27,35 @@ async def handle_photo(update: Update, context) -> None:
         # Get the file URL from Telegram
         file = await context.bot.get_file(file_id)
         photo_url = file.file_path
-        print(f"Received photo URL: {photo_url}")
+        print(f"[DEBUG] Received photo URL: {photo_url}")
 
-        # Send photo URL to the first API
-        first_response = requests.get(FIRST_API_URL + photo_url).json()
-        print(f"First API Response: {first_response}")
+        # Send the photo URL to the first API
+        first_response = requests.get(FIRST_API_URL + photo_url)
+        print(f"[DEBUG] First API Raw Response: {first_response.text}")
 
-        if first_response.get("status") == "ACCEPTED":
-            transaction_id = first_response.get("transaction_id")
+        first_response_json = first_response.json()
+        if first_response_json.get("status") == "ACCEPTED":
+            transaction_id = first_response_json.get("transaction_id")
+            print(f"[DEBUG] Transaction ID: {transaction_id}")
 
-            # Use transaction ID with the second API
-            second_response = requests.get(SECOND_API_URL + transaction_id).json()
-            print(f"Second API Response: {second_response}")
+            # Use transaction ID in the second API
+            second_response = requests.get(SECOND_API_URL + transaction_id)
+            print(f"[DEBUG] Second API Raw Response: {second_response.text}")
 
-            final_image_url = second_response.get("tmp_url")
+            second_response_json = second_response.json()
+            final_image_url = second_response_json.get("tmp_url")
+
             if final_image_url:
                 # Send the resulting image back to the user
                 await context.bot.send_photo(chat_id=chat_id, photo=final_image_url)
                 await update.message.reply_text("Here is your processed image!")
             else:
-                await update.message.reply_text("Failed to retrieve the final image.")
+                await update.message.reply_text("Failed to retrieve the final image. Check the second API response.")
         else:
-            await update.message.reply_text("Failed to process the photo.")
+            await update.message.reply_text("Failed to process the photo. Check the first API response.")
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"[ERROR] {e}")
         await update.message.reply_text("An error occurred while processing your photo.")
 
 
